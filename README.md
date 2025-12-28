@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Hot Reload Demo" width="600"/>
+  <img src="packages/docs/public/screenshots/main.png" alt="Minecraft running with Dart support" width="600"/>
 </p>
 
 ---

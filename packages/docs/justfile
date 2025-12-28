@@ -1,0 +1,20 @@
+# Redstone Docs - Development Commands
+
+default:
+    @just --list
+
+# Run development server
+dev:
+    npm run dev
+
+# Build for production
+build:
+    npm run build
+
+# Start production server
+start:
+    npm run start
+
+# Run linter
+lint:
+    npm run lint

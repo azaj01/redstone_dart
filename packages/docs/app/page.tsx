@@ -20,7 +20,7 @@ export default function HomePage() {
             Change code, see results instantly.
           </p>
 
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center mb-12">
             <Link
               href="/docs"
               className="bg-red-600 hover:bg-red-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
@@ -28,11 +28,20 @@ export default function HomePage() {
               Get Started
             </Link>
             <a
-              href="https://github.com/user/redstone-dart"
+              href="https://github.com/Norbert515/redstone_dart"
               className="border border-zinc-600 hover:border-zinc-400 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
             >
               GitHub
             </a>
+          </div>
+
+          {/* Hero Screenshot */}
+          <div className="max-w-4xl mx-auto">
+            <img
+              src="/screenshots/main.png"
+              alt="Minecraft running with Dart support"
+              className="rounded-lg border border-zinc-700 shadow-2xl"
+            />
           </div>
         </div>
       </section>
