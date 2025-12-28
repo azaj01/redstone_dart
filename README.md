@@ -4,6 +4,9 @@
   <strong>Write Minecraft mods in Dart with hot reload</strong>
 </p>
 
+> **Warning**
+> This project is highly experimental and under active development. APIs are likely to change significantly between versions. Use at your own risk and expect breaking changes.
+
 <p align="center">
   <img src="packages/docs/public/screenshots/main.png" alt="Minecraft running with Dart support" width="600"/>
 </p>
