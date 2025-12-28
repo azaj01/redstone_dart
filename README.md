@@ -1,22 +1,13 @@
 <p align="center">
-  <img src="packages/docs/public/screenshots/redstone_logo.png" alt="Redstone.Dart - Write Minecraft mods in Dart" width="500"/>
-</p>
-
-<p align="center">
-  <strong>The Flutter for Minecraft</strong><br/>
-  Write Minecraft mods in Dart with hot reload support
-</p>
-
-<p align="center">
-  <a href="https://redstone-dart.dev/guide/">Documentation</a> •
-  <a href="https://redstone-dart.dev/guide/getting-started.html">Getting Started</a> •
-  <a href="https://redstone-dart.dev/examples/">Examples</a>
-</p>
-
-<p align="center">
+  <img src="packages/docs/public/screenshots/redstone_logo.png" alt="Redstone.Dart" width="500"/>
+  <br/><br/>
+  <strong>Write Minecraft mods in Dart with hot reload</strong>
+  <br/><br/>
   <img src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A?style=flat-square&logo=minecraft" alt="Minecraft 1.21.1"/>
   <img src="https://img.shields.io/badge/Dart-3.0+-0175C2?style=flat-square&logo=dart" alt="Dart 3.0+"/>
   <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License MIT"/>
+  <br/><br/>
+  <a href="https://redstone-dart.dev/guide/">Docs</a> · <a href="https://redstone-dart.dev/guide/getting-started.html">Get Started</a> · <a href="https://redstone-dart.dev/examples/">Examples</a>
 </p>
 
 <p align="center">
@@ -24,8 +15,6 @@
 </p>
 
 ---
-
-## What is Redstone.Dart?
 
 Redstone.Dart lets you write Minecraft mods in Dart instead of Java. Get instant feedback with hot reload — see your changes in-game without restarting Minecraft.
 

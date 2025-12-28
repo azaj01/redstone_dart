@@ -32,7 +32,7 @@ export default function HomePage() {
           <img
             src="/screenshots/redstone_logo.png"
             alt="Redstone.Dart"
-            className="h-48 md:h-64 lg:h-80 mx-auto mb-8"
+            className="w-auto max-h-48 md:max-h-64 lg:max-h-80 mx-auto mb-8 object-contain"
           />
 
           <p className="text-lg md:text-xl text-zinc-300 mb-3">
