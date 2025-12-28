@@ -155,14 +155,17 @@ class RunCommand extends Command<int> {
           // Set up a completer that resolves when we should exit
           final exitCompleter = Completer<int>();
 
-          // Monitor process exit
-          runner.exitCode.then((code) {
-            if (!exitCompleter.isCompleted) {
-              Logger.newLine();
-              Logger.info('Process exited with code $code');
-              exitCompleter.complete(code);
-            }
-          });
+          // Monitor process exit (but ignore during hot restart)
+          void attachExitListener() {
+            runner.exitCode.then((code) {
+              if (!exitCompleter.isCompleted && !_isRestarting) {
+                Logger.newLine();
+                Logger.info('Process exited with code $code');
+                exitCompleter.complete(code);
+              }
+            });
+          }
+          attachExitListener();
 
           // Listen for keyboard input using TtyInput (survives subprocess restarts)
           _ttyInput.setRawMode();
@@ -178,8 +181,9 @@ class RunCommand extends Command<int> {
           // Wait for exit (either from process dying or user pressing 'q')
           final exitCode = await exitCompleter.future;
           terminalRestoreTimer.cancel();
-          await _stdinSubscription?.cancel();
-          return exitCode;
+          _ttyInput.restoreMode();
+          // Force exit - /dev/tty stream keeps event loop alive
+          exit(exitCode);
         } else {
           Logger.warning('Could not connect to Dart VM. Hot reload disabled.');
         }
@@ -305,7 +309,8 @@ class RunCommand extends Command<int> {
 
       // Step 3: Cancel the old stdin subscription before stopping
       // (subprocess exit corrupts stdin, so we'll create a fresh one)
-      await _stdinSubscription?.cancel();
+      // Don't await - /dev/tty read blocks until input arrives
+      _stdinSubscription?.cancel();
       _stdinSubscription = null;
 
       // Step 4: Stop Minecraft
@@ -341,9 +346,9 @@ class RunCommand extends Command<int> {
       }
 
       if (connected) {
-        // Re-attach exit listener to new process
+        // Re-attach exit listener to new process (ignore during hot restart)
         runner.exitCode.then((code) {
-          if (!exitCompleter.isCompleted) {
+          if (!exitCompleter.isCompleted && !_isRestarting) {
             Logger.newLine();
             Logger.info('Process exited with code $code');
             exitCompleter.complete(code);
