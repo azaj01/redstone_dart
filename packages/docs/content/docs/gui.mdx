@@ -24,7 +24,7 @@ class HelloScreen extends Screen {
       'Hello, Minecraft!',
       width ~/ 2,
       height ~/ 2,
-      0xFFFFFF,
+      color: 0xFFFFFF,
     );
   }
 
@@ -71,13 +71,13 @@ Color format: `0xAARRGGBB` (alpha, red, green, blue)
 
 ```dart
 // Left-aligned
-graphics.drawString('Hello', x, y, 0xFFFFFF);
+graphics.drawString('Hello', x, y, color: 0xFFFFFF);
 
 // Centered
-graphics.drawCenteredString('Centered', width ~/ 2, y, 0xFFFFFF);
+graphics.drawCenteredString('Centered', width ~/ 2, y, color: 0xFFFFFF);
 
 // With shadow
-graphics.drawString('Shadow', x, y, 0xFFFFFF, shadow: true);
+graphics.drawString('Shadow', x, y, color: 0xFFFFFF, shadow: true);
 ```
 
 ### Draw Textures
@@ -298,7 +298,7 @@ class SettingsScreen extends Screen {
       '§lSettings',
       width ~/ 2,
       height ~/ 3 - 30,
-      0xFFFFFF,
+      color: 0xFFFFFF,
     );
 
     // Label
@@ -306,7 +306,7 @@ class SettingsScreen extends Screen {
       'Username:',
       width ~/ 2 - 100,
       height ~/ 3 - 12,
-      0xAAAAAA,
+      color: 0xAAAAAA,
     );
 
     // Status message
@@ -315,7 +315,7 @@ class SettingsScreen extends Screen {
         statusMessage,
         width ~/ 2,
         height ~/ 3 + 120,
-        0xFFFFFF,
+        color: 0xFFFFFF,
       );
     }
   }

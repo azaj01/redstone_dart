@@ -11,7 +11,7 @@ packages/
 │   ├── src/main/       # Server-side/common Java code
 │   └── src/client/     # Client-only Java code (renderers, GUI)
 ├── redstone_cli/       # CLI tool for building and running mods
-├── generic_jni_bridge/ # Low-level JNI communication layer
+# Note: JNI bridge code is in dart_mc/lib/src/jni/
 ├── native_mc_bridge/   # Native C++ JNI bridge library
 ├── redstone_test/      # Headless Minecraft E2E test framework
 └── framework_tests/    # Comprehensive tests for the framework
@@ -77,6 +77,7 @@ EntityRegistry.register(MyZombie());
 - `EntityModel.humanoid(texture)` - Bipedal model (zombie/player-like)
 - `EntityModel.quadruped(texture)` - Four-legged model (cow/pig-like)
 - `EntityModel.simple(texture, scale)` - Basic scaled model
+- `EntityModel.custom(texture)` - Custom model with texture only
 
 Entities without a `model` field are invisible (use `NoopRenderer`).
 
@@ -85,8 +86,8 @@ Entities without a `model` field are invisible (use `NoopRenderer`).
 ```dart
 class MyScreen extends Screen {
   @override
-  void render(GuiGraphics graphics) {
-    graphics.drawString('Hello World', 10, 10, 0xFFFFFF);
+  void render(GuiGraphics graphics, int mouseX, int mouseY, double partialTick) {
+    graphics.drawString('Hello World', 10, 10, color: 0xFFFFFF);
   }
 }
 ```
@@ -98,6 +99,10 @@ class MyScreen extends Screen {
 redstone run          # Build and run the mod with hot reload
 redstone build        # Build without running
 redstone generate     # Regenerate assets (blocks, items, textures)
+redstone create       # Create a new mod project
+redstone doctor       # Check system requirements
+redstone devices      # List available devices
+redstone upgrade      # Upgrade the CLI tool
 
 # Testing entities in-game
 /spawnzombie          # Spawn custom zombie
@@ -282,6 +287,12 @@ Future<void> main() async {
 - `isBlock(Block.stone)` or `isBlock('minecraft:stone')`
 - `isAirBlock`
 - `isNotAirBlock`
+- `isAt(BlockPos)` - Position matcher
+- `isNearVec3(Vec3, tolerance)` - Vec3 proximity matcher
+- `hasHealth(double)` - Health matcher
+- `hasEntityType(EntityType)` - Entity type matcher
+- `isDeadEntity` / `isAliveEntity` - Alive state matchers
+- `hasGameMode(GameMode)` - Player game mode matcher
 
 ### Test File Examples
 

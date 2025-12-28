@@ -31,21 +31,21 @@ ActionResult onUse(int worldId, int x, int y, int z, int playerId, int hand) {
 For most operations, use the static dimension references:
 
 ```dart
-World.overworld.setBlock(x, y, z, 'minecraft:diamond_block');
+World.overworld.setBlock(BlockPos(x, y, z), Block.diamondBlock);
 ```
 
 ## Placing and Reading Blocks
 
 ```dart
 // Place a block
-World.overworld.setBlock(100, 64, 100, 'minecraft:diamond_block');
+World.overworld.setBlock(BlockPos(100, 64, 100), Block.diamondBlock);
 
 // Remove a block (place air)
-World.overworld.setBlock(100, 64, 100, 'minecraft:air');
+World.overworld.setBlock(BlockPos(100, 64, 100), Block.air);
 
 // Read what block is at a position
-final block = World.overworld.getBlock(100, 64, 100);
-// Returns something like "minecraft:stone"
+final block = World.overworld.getBlock(BlockPos(100, 64, 100));
+// Returns a Block object
 ```
 
 Block IDs follow Minecraft's `namespace:path` format. Vanilla blocks use `minecraft:` prefix.
@@ -69,13 +69,13 @@ Particles and sounds add feedback without affecting gameplay:
 
 ```dart
 // Spawn particles
-World.overworld.spawnParticle(x, y, z, ParticleType.flame);
-World.overworld.spawnParticle(x, y, z, ParticleType.heart);
-World.overworld.spawnParticle(x, y, z, ParticleType.explosion);
+World.overworld.spawnParticles(Particles.flame, Vec3(x, y, z));
+World.overworld.spawnParticles(Particles.heart, Vec3(x, y, z));
+World.overworld.spawnParticles(Particles.explosion, Vec3(x, y, z));
 
 // Play sounds
-World.overworld.playSound(x, y, z, 'minecraft:entity.experience_orb.pickup');
-World.overworld.playSound(x, y, z, 'minecraft:block.note_block.pling');
+World.overworld.playSound(Vec3(x, y, z), 'minecraft:entity.experience_orb.pickup');
+World.overworld.playSound(Vec3(x, y, z), 'minecraft:block.note_block.pling');
 ```
 
 Sound IDs come from Minecraft's sound registry. You can find them in the Minecraft wiki or by looking at vanilla sound files.
@@ -84,27 +84,28 @@ Sound IDs come from Minecraft's sound registry. You can find them in the Minecra
 
 ```dart
 // Basic explosion (no block damage)
-World.overworld.createExplosion(x, y, z, power: 4.0);
+World.overworld.createExplosion(Vec3(x, y, z), 4.0);
 
 // TNT-like explosion (breaks blocks)
-World.overworld.createExplosion(x, y, z, power: 4.0, breakBlocks: true);
+World.overworld.createExplosion(Vec3(x, y, z), 4.0, breakBlocks: true);
 
 // Fiery explosion
-World.overworld.createExplosion(x, y, z, power: 4.0, causeFire: true);
+World.overworld.createExplosion(Vec3(x, y, z), 4.0, causeFire: true);
 ```
 
-The `power` parameter controls explosion size. TNT is 4.0, creepers are 3.0, the wither is 8.0.
+The second parameter is power. TNT is 4.0, creepers are 3.0, the wither is 8.0.
 
 ## Time and Weather
 
 ```dart
 // Set time (0-24000)
 // 0 = dawn, 6000 = noon, 12000 = dusk, 18000 = midnight
-World.overworld.setTime(6000);
+World.overworld.timeOfDay = 6000;
 
 // Weather
-World.overworld.setRaining(true);
-World.overworld.setThundering(true);
+World.overworld.weather = Weather.rain;
+World.overworld.weather = Weather.thunder;
+World.overworld.weather = Weather.clear;
 ```
 
 ## Coordinate System
@@ -131,16 +132,16 @@ ActionResult onUse(int worldId, int x, int y, int z, int playerId, int hand) {
   // Build a glass platform
   for (var dx = -1; dx <= 1; dx++) {
     for (var dz = -1; dz <= 1; dz++) {
-      World.overworld.setBlock(x + dx, targetY, z + dz, 'minecraft:glass');
+      World.overworld.setBlock(BlockPos(x + dx, targetY, z + dz), Block.glass);
     }
   }
 
   // Teleport player
-  player.teleport(x.toDouble(), targetY + 1.0, z.toDouble());
+  player.teleport(BlockPos(x, targetY + 1, z));
 
   // Effects
-  World.overworld.spawnParticle(x.toDouble(), y + 1.0, z.toDouble(), ParticleType.portal);
-  World.overworld.playSound(x.toDouble(), y.toDouble(), z.toDouble(), 'minecraft:entity.enderman.teleport');
+  World.overworld.spawnParticles(Particles.portal, Vec3(x.toDouble(), y + 1.0, z.toDouble()));
+  World.overworld.playSound(Vec3(x.toDouble(), y.toDouble(), z.toDouble()), 'minecraft:entity.enderman.teleport');
 
   return ActionResult.success;
 }

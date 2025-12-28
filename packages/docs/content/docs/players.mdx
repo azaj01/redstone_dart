@@ -63,8 +63,8 @@ Common codes:
 
 ```dart
 // Big centered title
-player.showTitle('§6Welcome!');
-player.showTitle('§6Welcome!', subtitle: 'Enjoy your stay');
+player.sendTitle('§6Welcome!');
+player.sendTitle('§6Welcome!', subtitle: 'Enjoy your stay');
 
 // Above hotbar
 player.sendActionBar('Health: 20/20');
@@ -73,11 +73,11 @@ player.sendActionBar('Health: 20/20');
 ## Movement
 
 ```dart
-// Teleport to coordinates
-player.teleport(100.0, 64.0, 200.0);
+// Teleport to coordinates (using BlockPos)
+player.teleport(BlockPos(100, 64, 200));
 
-// Teleport with facing direction
-player.teleport(100.0, 64.0, 200.0, yaw: 90.0, pitch: 0.0);
+// Teleport with precise positioning (using Vec3)
+player.teleportPrecise(Vec3(100.0, 64.0, 200.0));
 
 // Apply velocity (launch player)
 player.setVelocity(0.0, 1.5, 0.0);  // Up into the air
@@ -126,27 +126,27 @@ Common effects: `speed`, `slowness`, `haste`, `strength`, `jumpBoost`, `regenera
 
 ```dart
 // Health (0-20, where 20 = full hearts)
-player.setHealth(20.0);
+player.health = 20.0;
 player.heal(5.0);     // Add health
 player.damage(2.0);   // Deal damage
 
 // Food (0-20)
-player.setFoodLevel(20);
+player.foodLevel = 20;
 ```
 
 ## Experience
 
 ```dart
 player.giveExperience(100);        // Add XP points
-player.setExperienceLevel(30);     // Set level directly
+player.experienceLevel = 30;       // Set level directly
 ```
 
 ## Game Mode
 
 ```dart
-player.setGameMode(GameMode.creative);
-player.setGameMode(GameMode.survival);
-player.setGameMode(GameMode.spectator);
+player.gameMode = GameMode.creative;
+player.gameMode = GameMode.survival;
+player.gameMode = GameMode.spectator;
 ```
 
 ## Reading Player State
@@ -154,7 +154,7 @@ player.setGameMode(GameMode.spectator);
 ```dart
 player.name           // Display name
 player.uuid           // Unique identifier
-player.x, player.y, player.z    // Position
+player.position       // Vec3 position (use player.position.x, .y, .z)
 player.yaw, player.pitch        // Look direction
 player.health         // Current health
 player.maxHealth      // Maximum health
@@ -182,7 +182,7 @@ Events.onPlayerJoin((player) {
 
   seenPlayers.add(player.uuid);
 
-  player.showTitle('§6Welcome!', subtitle: '§7Here are some items');
+  player.sendTitle('§6Welcome!', subtitle: '§7Here are some items');
 
   player.giveItem('minecraft:stone_sword');
   player.giveItem('minecraft:stone_pickaxe');

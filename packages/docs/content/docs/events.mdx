@@ -48,20 +48,18 @@ void main() {
 - `Events.onBlockPlace((x, y, z, playerId) { })` — Any block placed
 
 **Game Events:**
-- `Events.onTick(() { })` — Every game tick (20/second)
+- `Events.addTickListener((int tick) { })` — Every game tick (20/second)
 
 ### The Tick Event
 
-`onTick` runs 20 times per second. It's powerful but dangerous—expensive code here causes lag for everyone.
+`addTickListener` runs 20 times per second. It's powerful but dangerous—expensive code here causes lag for everyone.
 
 ```dart
-var tickCount = 0;
-
-Events.onTick(() {
-  tickCount++;
+Events.addTickListener((int tick) {
+  // tick is the current game tick count
 
   // Do something every second (20 ticks)
-  if (tickCount % 20 == 0) {
+  if (tick % 20 == 0) {
     // This is fine
   }
 

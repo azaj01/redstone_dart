@@ -82,12 +82,7 @@ export default function HomePage() {
                     {'      '}hardness: <span style={{color: '#d3869b'}}>2.0</span>,{'\n'}
                     {'      '}luminance: <span style={{color: '#d3869b'}}>15</span>,{'\n'}
                     {'    '}),{'\n'}
-                    {'  '});{'\n\n'}
-                    {'  '}<span style={{color: '#928374'}}>@override</span>{'\n'}
-                    {'  '}<span style={{color: '#fabd2f'}}>ActionResult</span> <span style={{color: '#8ec07c'}}>onUse</span>(<span style={{color: '#fabd2f'}}>Player</span> player) {'{\n'}
-                    {'    '}player.<span style={{color: '#8ec07c'}}>sendMessage</span>(<span style={{color: '#b8bb26'}}>&apos;Hello from Dart!&apos;</span>);{'\n'}
-                    {'    '}<span style={{color: '#fe8019'}}>return</span> <span style={{color: '#fabd2f'}}>ActionResult</span>.success;{'\n'}
-                    {'  '}{'}\n'}
+                    {'  '});{'\n'}
                     {'}'}
                   </code>
                 </pre>
