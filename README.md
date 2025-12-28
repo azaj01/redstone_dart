@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Redstone.Dart Logo" width="200"/>
+  <img src="packages/docs/public/screenshots/redstone_logo.png" alt="Redstone.Dart - Write Minecraft mods in Dart" width="500"/>
 </p>
-
-<h1 align="center">Redstone.Dart</h1>
 
 <p align="center">
   <strong>The Flutter for Minecraft</strong><br/>

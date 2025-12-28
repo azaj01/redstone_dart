@@ -13,3 +13,23 @@
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 16px 16px;
 }
+
+/* Slow pan animation for hero background - creates subtle 3D illusion */
+@keyframes slow-pan {
+  0%, 100% {
+    transform: translate(0%, 0%) scale(1.1);
+  }
+  25% {
+    transform: translate(-2%, -1%) scale(1.1);
+  }
+  50% {
+    transform: translate(-1%, -2%) scale(1.1);
+  }
+  75% {
+    transform: translate(1%, -1%) scale(1.1);
+  }
+}
+
+.animate-slow-pan {
+  animation: slow-pan 30s ease-in-out infinite;
+}

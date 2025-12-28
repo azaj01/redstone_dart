@@ -1,140 +1,197 @@
+'use client';
+
 import Link from 'next/link';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-900 to-black text-white">
+    <main className="min-h-screen text-white relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 -z-10">
+        <div
+          className="absolute animate-slow-pan"
+          style={{
+            top: '-10%',
+            left: '-10%',
+            width: '120%',
+            height: '120%',
+          }}
+        >
+          <img
+            src="/screenshots/bg.png"
+            alt=""
+            className="w-full h-full object-cover blur-sm scale-110"
+            style={{ objectPosition: 'center 30%' }}
+          />
+        </div>
+        <div className="absolute inset-0 bg-black/70" />
+      </div>
+
       {/* Hero Section */}
-      <section className="container mx-auto px-6 py-24 text-center relative">
-        {/* Subtle pixel grid */}
-        <div className="absolute inset-0 pixel-grid opacity-20" />
+      <section className="min-h-screen flex flex-col items-center justify-center px-6 relative">
+        <div className="text-center max-w-4xl mx-auto">
+          <img
+            src="/screenshots/redstone_logo.png"
+            alt="Redstone.Dart"
+            className="h-48 md:h-64 lg:h-80 mx-auto mb-8"
+          />
 
-        <div className="relative z-10">
-          <h1 className="text-6xl font-bold mb-6">
-            <span className="text-red-500">Redstone</span>
-            <span className="text-zinc-500">.</span>
-            <span className="text-cyan-400">Dart</span>
-          </h1>
-
-          <p className="text-xl text-zinc-400 mb-8 max-w-2xl mx-auto">
-            Write Minecraft mods in Dart with hot reload.
-            Change code, see results instantly.
+          <p className="text-lg md:text-xl text-zinc-300 mb-3">
+            The <span className="text-cyan-400">Flutter</span> for <span className="text-green-400">Minecraft</span>
+          </p>
+          <p className="text-zinc-500 mb-10 max-w-md mx-auto">
+            Write mods in Dart. Hot reload in milliseconds.
           </p>
 
-          <div className="flex gap-4 justify-center mb-12">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <Link
               href="/docs"
-              className="bg-red-600 hover:bg-red-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+              className="bg-zinc-700 hover:bg-zinc-600 px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
             >
               Get Started
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </Link>
             <a
               href="https://github.com/Norbert515/redstone_dart"
-              className="border border-zinc-600 hover:border-zinc-400 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+              className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
             >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+              </svg>
               GitHub
             </a>
           </div>
+        </div>
 
-          {/* Hero Screenshot */}
-          <div className="max-w-4xl mx-auto">
-            <img
-              src="/screenshots/main.png"
-              alt="Minecraft running with Dart support"
-              className="rounded-lg border border-zinc-700 shadow-2xl"
-            />
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <svg className="w-6 h-6 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </section>
+
+      {/* Code Example */}
+      <section className="py-24 px-6 bg-zinc-900">
+        <div className="container mx-auto max-w-5xl">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl font-bold mb-4">
+                Hot reload, for real
+              </h2>
+              <p className="text-zinc-400 mb-6">
+                Change your code, press <kbd className="bg-zinc-800 px-2 py-0.5 rounded text-sm font-mono border border-zinc-700">r</kbd>, see it in Minecraft. No restart needed.
+              </p>
+              <ul className="space-y-3 text-zinc-400">
+                <li className="flex items-center gap-2">
+                  <span className="text-green-400">✓</span>
+                  ~200ms reload time
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-400">✓</span>
+                  World state preserved
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-400">✓</span>
+                  Works with blocks, items, commands
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-700 bg-zinc-800/50">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                  <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                  <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                </div>
+                <span className="text-zinc-500 text-sm ml-2">magic_block.dart</span>
+              </div>
+              <pre className="p-4 overflow-x-auto text-sm">
+                <code>
+                  <span className="text-purple-400">class</span> <span className="text-yellow-300">MagicBlock</span> <span className="text-purple-400">extends</span> <span className="text-cyan-300">CustomBlock</span> {'{\n'}
+                  {'  '}<span className="text-yellow-300">MagicBlock</span>() : <span className="text-purple-400">super</span>({'\n'}
+                  {'    '}id: <span className="text-green-400">&apos;mymod:magic&apos;</span>,{'\n'}
+                  {'    '}settings: <span className="text-cyan-300">BlockSettings</span>({'\n'}
+                  {'      '}hardness: <span className="text-orange-400">2.0</span>,{'\n'}
+                  {'    '}),{'\n'}
+                  {'  '});{'\n\n'}
+                  {'  '}<span className="text-zinc-500">@override</span>{'\n'}
+                  {'  '}<span className="text-cyan-300">ActionResult</span> <span className="text-blue-300">onUse</span>(...) {'{\n'}
+                  {'    '}player.sendMessage(<span className="text-green-400">&apos;Hello!&apos;</span>);{'\n'}
+                  {'    '}<span className="text-purple-400">return</span> <span className="text-cyan-300">ActionResult</span>.success;{'\n'}
+                  {'  '}{'}\n'}
+                  {'}'}
+                </code>
+              </pre>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="container mx-auto px-6 py-16">
-        <div className="grid md:grid-cols-3 gap-8">
-          <FeatureCard
-            icon="⚡"
-            title="Hot Reload"
-            description="Change your code and see results in under a second. No more waiting for Minecraft to restart."
-          />
-          <FeatureCard
-            icon="🎯"
-            title="Dart Language"
-            description="Write mods in modern Dart instead of Java. Enjoy null safety, async/await, and a great type system."
-          />
-          <FeatureCard
-            icon="🛠️"
-            title="Full Featured"
-            description="Custom blocks, items, entities, commands, recipes, loot tables, and GUI screens."
-          />
-        </div>
-      </section>
-
-      {/* Code Example */}
-      <section className="container mx-auto px-6 py-16">
-        <h2 className="text-3xl font-bold text-center mb-8">
-          Simple & Expressive
-        </h2>
-        <div className="max-w-3xl mx-auto bg-zinc-800/50 border border-zinc-700 rounded-lg p-6 font-mono text-sm overflow-x-auto">
-          <pre className="text-zinc-300">{`class HelloBlock extends CustomBlock {
-  HelloBlock() : super(
-    id: 'mymod:hello_block',
-    settings: BlockSettings(hardness: 2.0),
-  );
-
-  @override
-  ActionResult onUse(int worldId, int x, int y, int z,
-                     int playerId, int hand) {
-    Players.getPlayer(playerId)?.sendMessage('§aHello!');
-    return ActionResult.success;
-  }
-}`}</pre>
+      <section className="py-24 px-6 bg-zinc-950">
+        <div className="container mx-auto max-w-5xl">
+          <h2 className="text-3xl font-bold mb-12 text-center">What you can build</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FeatureCard title="Blocks" description="Custom textures, interactions, and behaviors" />
+            <FeatureCard title="Items" description="Tools, weapons, and magical artifacts" />
+            <FeatureCard title="Entities" description="Custom mobs with AI and models" />
+            <FeatureCard title="Commands" description="Slash commands with arguments" />
+            <FeatureCard title="Recipes" description="Crafting, smelting, smithing" />
+            <FeatureCard title="Loot Tables" description="Custom mob and chest drops" />
+          </div>
         </div>
       </section>
 
       {/* Quick Start */}
-      <section className="container mx-auto px-6 py-16">
-        <h2 className="text-3xl font-bold text-center mb-8">
-          Get Started in <span className="text-red-500">30 Seconds</span>
-        </h2>
-        <div className="max-w-2xl mx-auto space-y-4">
-          <CodeStep step={1} code="dart pub global activate redstone_cli" />
-          <CodeStep step={2} code="redstone create my_mod" />
-          <CodeStep step={3} code="cd my_mod && redstone run" />
+      <section className="py-24 px-6 bg-zinc-900">
+        <div className="container mx-auto max-w-2xl">
+          <h2 className="text-3xl font-bold mb-8 text-center">Quick Start</h2>
+          <div className="space-y-3">
+            <CommandStep step={1} command="dart pub global activate redstone_cli" />
+            <CommandStep step={2} command="redstone create my_mod" />
+            <CommandStep step={3} command="cd my_mod && redstone run" />
+          </div>
+          <p className="text-center text-zinc-500 mt-6 text-sm">
+            Minecraft launches with your mod. Press <kbd className="bg-zinc-800 px-1.5 py-0.5 rounded text-xs font-mono">r</kbd> to hot reload.
+          </p>
         </div>
-        <p className="text-center text-zinc-400 mt-8">
-          That's it! Minecraft launches with your mod. Press <kbd className="bg-zinc-700 px-2 py-1 rounded font-mono">r</kbd> to hot reload.
-        </p>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-800 py-8 mt-16">
-        <div className="container mx-auto px-6 text-center text-zinc-500">
-          Built with <span className="text-cyan-400">Dart</span> + <span className="text-red-500">Redstone</span>
+      <footer className="py-8 px-6 bg-zinc-950 border-t border-zinc-800">
+        <div className="container mx-auto max-w-5xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
+            <img src="/screenshots/redstone_logo.png" alt="Redstone.Dart" className="h-6" />
+            <div className="flex items-center gap-6">
+              <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
+              <a href="https://github.com/Norbert515/redstone_dart" className="hover:text-white transition-colors">GitHub</a>
+            </div>
+            <span>MIT License</span>
+          </div>
         </div>
       </footer>
     </main>
   );
 }
 
-function FeatureCard({ icon, title, description }: {
-  icon: string;
-  title: string;
-  description: string;
-}) {
+function FeatureCard({ title, description }: { title: string; description: string }) {
   return (
-    <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-6 hover:border-zinc-600 transition-colors">
-      <div className="text-4xl mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-zinc-400">{description}</p>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
+      <h3 className="font-medium mb-1">{title}</h3>
+      <p className="text-zinc-500 text-sm">{description}</p>
     </div>
   );
 }
 
-function CodeStep({ step, code }: { step: number; code: string }) {
+function CommandStep({ step, command }: { step: number; command: string }) {
   return (
-    <div className="flex items-center gap-4 bg-zinc-800/50 border border-zinc-700 rounded-lg p-4">
-      <span className="bg-red-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+    <div className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-lg p-3">
+      <span className="bg-zinc-700 w-7 h-7 rounded flex items-center justify-center text-sm font-mono text-zinc-400">
         {step}
       </span>
-      <code className="text-zinc-300 font-mono text-sm flex-1">{code}</code>
+      <code className="text-zinc-300 font-mono text-sm">{command}</code>
     </div>
   );
 }
