@@ -184,32 +184,33 @@ void main() {
 
 /// Find the redstone CLI entry point
 String? _findRedstoneCli() {
-  // When running from packages/redstone_cli/test/, go up to find bin/redstone.dart
+  // Start from current directory and look for bin/redstone.dart
   var current = Directory.current;
 
-  // Try to find from current directory
+  // Check if we're directly in packages/redstone_cli
+  final directBinPath = p.join(current.path, 'bin', 'redstone.dart');
+  if (File(directBinPath).existsSync()) {
+    return directBinPath;
+  }
+
+  // Walk up looking for packages/redstone_cli/bin/redstone.dart
   for (var i = 0; i < 5; i++) {
     final binPath = p.join(current.path, 'packages', 'redstone_cli', 'bin', 'redstone.dart');
     if (File(binPath).existsSync()) {
       return binPath;
     }
-
-    final directBinPath = p.join(current.path, 'bin', 'redstone.dart');
-    if (File(directBinPath).existsSync()) {
-      return directBinPath;
-    }
-
     current = current.parent;
   }
 
-  // Fallback: try relative to test file location
+  // Fallback: try relative to test file location (for IDE test runners)
   final testDir = Platform.script.toFilePath();
   if (testDir.contains('packages/redstone_cli')) {
     final idx = testDir.indexOf('packages/redstone_cli');
-    return p.join(
-      testDir.substring(0, idx),
-      'packages/redstone_cli/bin/redstone.dart',
-    );
+    final cliRoot = testDir.substring(0, idx + 'packages/redstone_cli'.length);
+    final binPath = p.join(cliRoot, 'bin', 'redstone.dart');
+    if (File(binPath).existsSync()) {
+      return binPath;
+    }
   }
 
   return null;
