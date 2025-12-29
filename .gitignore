@@ -32,6 +32,8 @@ build/
 out/
 classes/
 bin/
+# But keep CLI's bin/ directory (Dart executable entry point)
+!packages/redstone_cli/bin/
 
 # JVM crash/debug logs
 hs_err_*.log
