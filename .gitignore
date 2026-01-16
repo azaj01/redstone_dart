@@ -112,3 +112,6 @@ engine_build/
 
 # Compiled kernel blobs (generated at runtime)
 *.dill
+
+# Landing page build output
+packages/landing/dist/

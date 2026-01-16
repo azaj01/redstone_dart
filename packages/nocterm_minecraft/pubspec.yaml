@@ -8,7 +8,9 @@ environment:
 
 dependencies:
   nocterm:
-    path: /Users/norbertkozsir/IdeaProjects/nocterm
+    git:
+      url: https://github.com/Norbert515/nocterm.git
+      ref: d1861c44b9521fa253727a865f8acd211ad61298
   dart_mod_server:
     path: ../dart_mod_server
   dart_mod_common:
