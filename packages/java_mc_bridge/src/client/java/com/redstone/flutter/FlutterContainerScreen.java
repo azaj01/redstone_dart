@@ -3,6 +3,7 @@ package com.redstone.flutter;
 import com.redstone.DartBridge;
 import com.redstone.DartBridgeClient;
 import com.redstone.DartContainerMenu;
+import com.redstone.flutter.ContainerPrewarmManager;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.GuiGraphics;
@@ -93,8 +94,38 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
         LOGGER.info("[FlutterContainerScreen] Initialized with menu containerId={}, typeId={}, title={}",
             menu.containerId, containerId, titleStr);
 
+        // Check if we have a pre-warmed frame ready (player was looking at this container)
+        boolean prewarmed = ContainerPrewarmManager.isPrewarmed(containerId) || ContainerPrewarmManager.isAnyPrewarmed();
+        if (prewarmed) {
+            LOGGER.info("[FlutterContainerScreen] Using pre-warmed frame for container '{}'", containerId);
+            ContainerPrewarmManager.clearPrewarm();
+        }
+
         // Notify Dart that container is opening
         DartBridgeClient.dispatchContainerScreenOpen(menu.containerId, menu.slots.size(), containerId, titleStr);
+
+        // If not pre-warmed, schedule a frame and wait synchronously for Flutter to render first frame
+        // This avoids the "Waiting for Flutter frame..." flash when opening containers
+        if (!prewarmed) {
+            DartBridgeClient.scheduleFrame();
+
+            int maxAttempts = 100; // ~100ms max wait
+            int attempts = 0;
+            while (!DartBridgeClient.hasNewFrame() && attempts < maxAttempts) {
+                DartBridgeClient.safeProcessClientTasks();
+                try {
+                    Thread.sleep(1); // 1ms per iteration
+                } catch (InterruptedException e) {
+                    break;
+                }
+                attempts++;
+            }
+
+            if (attempts > 0) {
+                LOGGER.info("[FlutterContainerScreen] Waited {}ms for first frame (hasFrame={})",
+                    attempts, DartBridgeClient.hasNewFrame());
+            }
+        }
     }
 
     private void updateSlotPositions(int menuId, int[] data) {

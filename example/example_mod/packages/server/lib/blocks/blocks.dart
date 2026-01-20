@@ -57,5 +57,8 @@ void registerBlocks() {
   BlockRegistry.register(FloatingCrystalBlock());
   BlockRegistry.register(PulsingBlock());
 
+  // Animated chest - demonstrates stateful animations with lid opening
+  AnimatedChestBlock.register();
+
   BlockRegistry.freeze();
 }

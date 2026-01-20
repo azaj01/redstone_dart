@@ -1,12 +1,16 @@
 package com.redstone;
 
+import com.redstone.blockentity.AnimationRegistry;
 import com.redstone.blockentity.DartBlockEntityMenu;
+import com.redstone.blockentity.DartBlockEntityType;
+import com.redstone.flutter.ContainerPrewarmManager;
 import com.redstone.flutter.FlutterContainerScreen;
 import com.redstone.flutter.FlutterScreen;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
 import com.redstone.entity.FlutterDisplayEntityTypes;
 import com.redstone.proxy.EntityProxyRegistry;
+import com.redstone.blockentity.AnimatedBlockEntity;
 import com.redstone.blockentity.AnimatedBlockEntityType;
 import com.redstone.blockentity.FlutterDisplayBlockEntityType;
 import com.redstone.render.AnimatedBlockRenderer;
@@ -338,6 +342,8 @@ public class DartModClientLoader implements ClientModInitializer {
             } catch (UnsatisfiedLinkError e) {
                 // Multi-surface API not available - ignore
             }
+            // Check if player is looking at a container and pre-warm if so
+            ContainerPrewarmManager.tick();
             // Also call the test synchronization tick
             DartBridgeClient.onClientTick();
         });
@@ -623,9 +629,27 @@ public class DartModClientLoader implements ClientModInitializer {
         }
 
         // Register AnimatedBlockRenderer for all registered animated block entity types
+        // This covers blocks that are ONLY animated (no container)
         for (var type : AnimatedBlockEntityType.getAllTypes()) {
             BlockEntityRenderers.register(type, AnimatedBlockRenderer::new);
-            LOGGER.info("[DartModClientLoader] Registered AnimatedBlockRenderer for block entity type");
+            LOGGER.info("[DartModClientLoader] Registered AnimatedBlockRenderer for animated block entity type");
+        }
+
+        // Register AnimatedBlockRenderer for container block entity types that have animations
+        // Since DartProcessingBlockEntity now extends AnimatedBlockEntity, we can use
+        // AnimatedBlockRenderer for animated containers too.
+        for (String blockId : DartBlockEntityType.getAllBlockIds()) {
+            if (AnimationRegistry.hasAnimation(blockId)) {
+                var type = DartBlockEntityType.getType(blockId);
+                if (type != null) {
+                    // Note: The type is BlockEntityType<DartProcessingBlockEntity>, but since
+                    // DartProcessingBlockEntity extends AnimatedBlockEntity, this cast is safe.
+                    @SuppressWarnings("unchecked")
+                    var animType = (net.minecraft.world.level.block.entity.BlockEntityType<AnimatedBlockEntity>) (Object) type;
+                    BlockEntityRenderers.register(animType, AnimatedBlockRenderer::new);
+                    LOGGER.info("[DartModClientLoader] Registered AnimatedBlockRenderer for animated container block: {}", blockId);
+                }
+            }
         }
 
         // Also set up a callback for types registered after client init

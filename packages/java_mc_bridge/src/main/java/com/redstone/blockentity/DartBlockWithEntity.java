@@ -10,6 +10,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -43,6 +44,9 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
     /** Cached BlockEntityType for this block. */
     private BlockEntityType<DartProcessingBlockEntity> blockEntityType;
 
+    /** Whether this block has an animation. */
+    private final boolean hasAnimation;
+
     public DartBlockWithEntity(Properties settings, long dartHandlerId, Object blockSettings,
                                int blockEntityHandlerId, int inventorySize, String containerTitle,
                                String blockId) {
@@ -51,6 +55,8 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
         this.inventorySize = inventorySize;
         this.containerTitle = Component.literal(containerTitle);
         this.blockId = blockId;
+        // Check if this block also has animation
+        this.hasAnimation = AnimationRegistry.hasAnimation(blockId);
     }
 
     /**
@@ -97,25 +103,57 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
     @Override
     public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                              BlockEntityType<T> type) {
-        // Only tick on server side
+        BlockEntityType<DartProcessingBlockEntity> ourType = getBlockEntityType();
+        if (ourType == null || type != ourType) {
+            return null;
+        }
+
+        // For animated containers, we need both animation ticking AND server logic ticking
+        // Since DartProcessingBlockEntity now extends AnimatedBlockEntity (through DartBlockEntityWithInventory),
+        // we can tick it as an AnimatedBlockEntity for animation updates.
+        if (hasAnimation) {
+            // Check if server ticks are enabled for block entity logic
+            BlockEntityRegistry.BlockEntityConfig config = BlockEntityRegistry.getConfig(blockId);
+            boolean needsServerTick = config != null && config.ticks();
+
+            if (level.isClientSide()) {
+                // Client: only animation tick
+                return (BlockEntityTicker<T>) (lvl, pos, st, be) ->
+                    AnimatedBlockEntity.tick(lvl, pos, st, (AnimatedBlockEntity) be);
+            } else if (needsServerTick) {
+                // Server: both animation tick AND server logic tick
+                return (BlockEntityTicker<T>) (lvl, pos, st, be) -> {
+                    AnimatedBlockEntity.tick(lvl, pos, st, (AnimatedBlockEntity) be);
+                    DartProcessingBlockEntity.serverTick(lvl, pos, st, (DartProcessingBlockEntity) be);
+                };
+            } else {
+                // Server: only animation tick (no server logic needed)
+                return (BlockEntityTicker<T>) (lvl, pos, st, be) ->
+                    AnimatedBlockEntity.tick(lvl, pos, st, (AnimatedBlockEntity) be);
+            }
+        }
+
+        // Non-animated: only server-side tick
         if (level.isClientSide()) {
             return null;
         }
 
-        // Check if ticks are enabled for this block entity
         BlockEntityRegistry.BlockEntityConfig config = BlockEntityRegistry.getConfig(blockId);
         if (config == null || !config.ticks()) {
             return null;
         }
 
-        // Return the server ticker if type matches our block's type
-        BlockEntityType<DartProcessingBlockEntity> ourType = getBlockEntityType();
-        if (ourType != null && type == ourType) {
-            return (BlockEntityTicker<T>) (lvl, pos, st, be) ->
-                DartProcessingBlockEntity.serverTick(lvl, pos, st, (DartProcessingBlockEntity) be);
-        }
+        return (BlockEntityTicker<T>) (lvl, pos, st, be) ->
+            DartProcessingBlockEntity.serverTick(lvl, pos, st, (DartProcessingBlockEntity) be);
+    }
 
-        return null;
+    @Override
+    protected RenderShape getRenderShape(BlockState state) {
+        // Use INVISIBLE for animated blocks to prevent double-rendering
+        if (hasAnimation) {
+            return RenderShape.INVISIBLE;
+        }
+        return super.getRenderShape(state);
     }
 
     // ========================================================================

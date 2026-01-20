@@ -25,10 +25,11 @@ import com.redstone.DartBridge;
 /**
  * Block entity with inventory support.
  *
- * Extends DartBlockEntity with Container and WorldlyContainer implementations
- * for hopper/pipe interaction.
+ * Extends AnimatedBlockEntity with Container and WorldlyContainer implementations
+ * for hopper/pipe interaction. By extending AnimatedBlockEntity, all container
+ * blocks inherit animation support (even if not used).
  */
-public class DartBlockEntityWithInventory extends DartBlockEntity implements Container, WorldlyContainer, MenuProvider {
+public class DartBlockEntityWithInventory extends AnimatedBlockEntity implements Container, WorldlyContainer, MenuProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger("DartBlockEntityWithInventory");
 
     /** Inventory slots. */
@@ -121,7 +122,6 @@ public class DartBlockEntityWithInventory extends DartBlockEntity implements Con
      */
     @Override
     public void startOpen(ContainerUser containerUser) {
-        LOGGER.info("startOpen called with containerUser: {}", containerUser);
         if (containerUser instanceof Player player) {
             if (!this.isRemoved() && !player.isSpectator()) {
                 if (DartBridge.isInitialized()) {
@@ -141,7 +141,6 @@ public class DartBlockEntityWithInventory extends DartBlockEntity implements Con
      */
     @Override
     public void stopOpen(ContainerUser containerUser) {
-        LOGGER.info("stopOpen called with containerUser: {}", containerUser);
         if (containerUser instanceof Player player) {
             if (!this.isRemoved() && !player.isSpectator()) {
                 if (DartBridge.isInitialized()) {

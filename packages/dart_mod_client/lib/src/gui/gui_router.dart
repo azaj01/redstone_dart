@@ -85,6 +85,13 @@ class _GuiRouterState extends State<GuiRouter> {
   /// Stream subscriptions for container events.
   StreamSubscription<ContainerOpenEvent>? _openSubscription;
   StreamSubscription<int>? _closeSubscription;
+  StreamSubscription<ContainerPrewarmEvent>? _prewarmSubscription;
+
+  /// Pre-warmed route (if player is looking at a container).
+  GuiRoute? _prewarmedRoute;
+
+  /// Pre-warmed container ID (to verify the prewarm is still valid).
+  String? _prewarmedContainerId;
 
   /// Timer for polling fallback (used when events aren't available).
   Timer? _pollTimer;
@@ -111,6 +118,7 @@ class _GuiRouterState extends State<GuiRouter> {
 
       _openSubscription = ContainerEvents.onOpen.listen(_onContainerOpen);
       _closeSubscription = ContainerEvents.onClose.listen(_onContainerClose);
+      _prewarmSubscription = ContainerEvents.onPrewarm.listen(_onContainerPrewarm);
 
       // Check if a container is already open (e.g., if we initialized late)
       _checkCurrentContainer();
@@ -168,9 +176,20 @@ class _GuiRouterState extends State<GuiRouter> {
       columns: columns,
     );
 
-    // Find matching route (try containerId first, then title)
-    final route = _findRoute(containerId, event.title);
-    print('[GuiRouter] Found route: $route');
+    // Use prewarmed route if it matches, otherwise find the route
+    GuiRoute? route;
+    if (_prewarmedRoute != null && _prewarmedContainerId == containerId) {
+      route = _prewarmedRoute;
+      print('[GuiRouter] Using pre-warmed route for $containerId');
+    } else {
+      // Find matching route (try containerId first, then title)
+      route = _findRoute(containerId, event.title);
+      print('[GuiRouter] Found route: $route');
+    }
+
+    // Clear prewarm state
+    _prewarmedRoute = null;
+    _prewarmedContainerId = null;
 
     // Send pre-registered or cached slots if available
     final effectiveSlots = route?.effectiveSlots;
@@ -190,6 +209,35 @@ class _GuiRouterState extends State<GuiRouter> {
         _currentContainer = null;
         _currentRoute = null;
       });
+    }
+  }
+
+  /// Handle container prewarm event (player looking at container block).
+  ///
+  /// This prepares the route matching for faster screen opening.
+  /// The actual widget is built when the container opens, but we can
+  /// cache the route lookup result.
+  void _onContainerPrewarm(ContainerPrewarmEvent event) {
+    print('[GuiRouter] _onContainerPrewarm: containerId="${event.containerId}"');
+
+    if (event.containerId.isEmpty) {
+      // Clear prewarm state
+      _prewarmedRoute = null;
+      _prewarmedContainerId = null;
+      return;
+    }
+
+    // Find matching route for this container
+    final route = _findRoute(event.containerId, '');
+
+    if (route != null) {
+      _prewarmedRoute = route;
+      _prewarmedContainerId = event.containerId;
+      print('[GuiRouter] Pre-warmed route for ${event.containerId}');
+    } else {
+      // No matching route, clear prewarm
+      _prewarmedRoute = null;
+      _prewarmedContainerId = null;
     }
   }
 
@@ -251,6 +299,7 @@ class _GuiRouterState extends State<GuiRouter> {
   void dispose() {
     _openSubscription?.cancel();
     _closeSubscription?.cancel();
+    _prewarmSubscription?.cancel();
     _pollTimer?.cancel();
     super.dispose();
   }

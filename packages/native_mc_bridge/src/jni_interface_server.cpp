@@ -1520,9 +1520,12 @@ JNIEXPORT void JNICALL Java_com_redstone_DartBridge_onBlockEntityRemoved(
 JNIEXPORT void JNICALL Java_com_redstone_DartBridge_onBlockEntityContainerOpen(
     JNIEnv* /* env */, jclass /* cls */,
     jint handler_id, jlong block_pos_hash) {
+    std::cout << "[CONTAINER_OPEN_DEBUG] JNI onBlockEntityContainerOpen called - handler_id: "
+              << handler_id << ", block_pos_hash: " << block_pos_hash << std::endl;
     server_dispatch_block_entity_container_open(
         static_cast<int32_t>(handler_id),
         static_cast<int64_t>(block_pos_hash));
+    std::cout << "[CONTAINER_OPEN_DEBUG] JNI onBlockEntityContainerOpen - dispatch call completed" << std::endl;
 }
 
 /*

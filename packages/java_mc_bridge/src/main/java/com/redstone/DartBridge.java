@@ -3829,4 +3829,33 @@ public class DartBridge {
             LOGGER.error("Error setting block entity slot: {}", e.getMessage());
         }
     }
+
+    /**
+     * Set animation state for an animated block entity.
+     * Called from Dart via JNI to update stateful animation targets.
+     *
+     * @param blockPosHash The block position hash (from BlockPos.asLong())
+     * @param key The state key (e.g., "lidOpen")
+     * @param targetValue The target value (typically 0.0 or 1.0)
+     * @param speed Interpolation speed per tick
+     */
+    public static void setAnimationState(long blockPosHash, String key, double targetValue, double speed) {
+        if (serverInstance == null) {
+            LOGGER.warn("setAnimationState called but server not initialized");
+            return;
+        }
+
+        BlockPos pos = BlockPos.of(blockPosHash);
+
+        // Search all levels for the block entity
+        for (ServerLevel level : serverInstance.getAllLevels()) {
+            net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof com.redstone.blockentity.AnimatedBlockEntity animated) {
+                animated.setAnimationTarget(key, targetValue, speed);
+                return;
+            }
+        }
+
+        LOGGER.warn("No AnimatedBlockEntity found at {}", pos);
+    }
 }

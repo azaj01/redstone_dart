@@ -545,6 +545,23 @@ JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_nativeDispatchContaine
     );
 }
 
+/*
+ * Class:     com_redstone_DartBridgeClient
+ * Method:    dispatchContainerPrewarmNative
+ * Signature: (Ljava/lang/String;)V
+ *
+ * Dispatch container prewarm event to Dart.
+ * Called from ContainerPrewarmManager when player looks at a container block.
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_dispatchContainerPrewarmNative(
+    JNIEnv* env, jclass /* cls */, jstring containerId) {
+    const char* containerIdStr = containerId ? env->GetStringUTFChars(containerId, nullptr) : "";
+
+    client_dispatch_container_prewarm(containerIdStr);
+
+    if (containerId && containerIdStr) env->ReleaseStringUTFChars(containerId, containerIdStr);
+}
+
 // ==========================================================================
 // Multi-Surface JNI Entry Points (macOS only)
 // ==========================================================================

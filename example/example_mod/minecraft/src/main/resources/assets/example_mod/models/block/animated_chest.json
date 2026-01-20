@@ -1,0 +1,110 @@
+{
+  "textures": {
+    "chest": "example_mod:block/animated_chest",
+    "particle": "example_mod:block/animated_chest"
+  },
+  "elements": [
+    {
+      "from": [
+        1.0,
+        0.0,
+        1.0
+      ],
+      "to": [
+        15.0,
+        10.0,
+        15.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#chest"
+        },
+        "south": {
+          "texture": "#chest"
+        },
+        "east": {
+          "texture": "#chest"
+        },
+        "west": {
+          "texture": "#chest"
+        },
+        "up": {
+          "texture": "#chest"
+        },
+        "down": {
+          "texture": "#chest",
+          "cullface": "down"
+        }
+      },
+      "__name": "body",
+      "__animated": false
+    },
+    {
+      "from": [
+        1.0,
+        10.0,
+        1.0
+      ],
+      "to": [
+        15.0,
+        14.0,
+        15.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#chest"
+        },
+        "south": {
+          "texture": "#chest"
+        },
+        "east": {
+          "texture": "#chest"
+        },
+        "west": {
+          "texture": "#chest"
+        },
+        "up": {
+          "texture": "#chest"
+        },
+        "down": {
+          "texture": "#chest"
+        }
+      },
+      "__name": "lid"
+    },
+    {
+      "from": [
+        7.0,
+        7.0,
+        0.0
+      ],
+      "to": [
+        9.0,
+        11.0,
+        1.0
+      ],
+      "faces": {
+        "north": {
+          "texture": "#chest",
+          "cullface": "north"
+        },
+        "south": {
+          "texture": "#chest"
+        },
+        "east": {
+          "texture": "#chest"
+        },
+        "west": {
+          "texture": "#chest"
+        },
+        "up": {
+          "texture": "#chest"
+        },
+        "down": {
+          "texture": "#chest"
+        }
+      },
+      "__name": "latch"
+    }
+  ]
+}

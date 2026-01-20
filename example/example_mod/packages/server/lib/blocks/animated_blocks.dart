@@ -1,5 +1,9 @@
 import 'package:dart_mod_server/dart_mod_server.dart';
 
+// Export the animated chest
+export 'animated_chest_block.dart';
+export 'animated_chest_entity.dart';
+
 /// A block that spins continuously around the Y axis.
 class SpinningBlock extends CustomBlock {
   SpinningBlock()

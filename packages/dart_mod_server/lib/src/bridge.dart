@@ -3,6 +3,7 @@ library;
 
 // ignore_for_file: unused_field
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -706,18 +707,32 @@ class ServerBridge {
   /// [blockId] is the full block ID (e.g., "mymod:pedestal").
   /// [animationType] is the animation type (e.g., "spin", "bob", "pulse", "combined").
   /// [animationJson] is the JSON configuration for the animation.
+  /// [elementAnimationJson] optionally specifies which element indices should be animated
+  ///   (format: {"animatedIndices": [1, 2], "totalElements": 3}).
   static void queueAnimationRegistration({
     required int handlerId,
     required String blockId,
     required String animationType,
     required String animationJson,
+    String elementAnimationJson = '',
   }) {
     // In datagen mode, do nothing (no FFI available)
     if (isDatagenMode) return;
 
     final blockIdPtr = blockId.toNativeUtf8();
     final animationTypePtr = animationType.toNativeUtf8();
-    final animationJsonPtr = animationJson.toNativeUtf8();
+    // Combine animationJson with elementAnimationJson if present
+    String combinedJson = animationJson;
+    if (elementAnimationJson.isNotEmpty) {
+      // Parse both and merge
+      final animJson = Map<String, dynamic>.from(
+        (jsonDecode(animationJson) as Map<String, dynamic>? ?? {}),
+      );
+      final elemJson = jsonDecode(elementAnimationJson) as Map<String, dynamic>;
+      animJson['elementAnimation'] = elemJson;
+      combinedJson = jsonEncode(animJson);
+    }
+    final animationJsonPtr = combinedJson.toNativeUtf8();
 
     try {
       _serverQueueAnimationRegistration(

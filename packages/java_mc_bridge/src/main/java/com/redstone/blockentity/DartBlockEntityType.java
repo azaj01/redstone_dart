@@ -120,6 +120,20 @@ public class DartBlockEntityType {
     }
 
     /**
+     * Get all registered block IDs.
+     */
+    public static Iterable<String> getAllBlockIds() {
+        return TYPES.keySet();
+    }
+
+    /**
+     * Get all registered block entity types.
+     */
+    public static Iterable<BlockEntityType<DartProcessingBlockEntity>> getAllTypes() {
+        return TYPES.values();
+    }
+
+    /**
      * Clear all registered types. Used for testing.
      */
     public static void clear() {

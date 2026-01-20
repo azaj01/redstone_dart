@@ -55,4 +55,7 @@ public class AnimatedBlockRenderState extends BlockEntityRenderState {
 
     // Handler ID for the Dart-side block entity
     public int handlerId;
+
+    // Block ID for looking up element animation info (e.g., "mymod:animated_chest")
+    public String blockId;
 }

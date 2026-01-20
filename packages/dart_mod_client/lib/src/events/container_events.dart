@@ -35,6 +35,22 @@ class ContainerOpenEvent {
       'ContainerOpenEvent(menuId: $menuId, slotCount: $slotCount, containerId: $containerId, title: $title)';
 }
 
+/// Event data for container prewarm.
+///
+/// Sent when the player is looking at a container block but hasn't opened it yet.
+/// This allows the UI to pre-render for instant opening.
+class ContainerPrewarmEvent {
+  /// The container type ID (e.g., 'mymod:custom_chest').
+  ///
+  /// May be empty if the container type is unknown.
+  final String containerId;
+
+  ContainerPrewarmEvent(this.containerId);
+
+  @override
+  String toString() => 'ContainerPrewarmEvent(containerId: $containerId)';
+}
+
 /// Event stream for container lifecycle events.
 ///
 /// This provides event-driven notifications when containers are opened or closed,
@@ -59,11 +75,19 @@ class ContainerOpenEvent {
 /// ContainerEvents.onClose.listen((menuId) {
 ///   print('Container closed: menuId=$menuId');
 /// });
+///
+/// // Listen for prewarm events (player looking at container)
+/// ContainerEvents.onPrewarm.listen((event) {
+///   print('Container prewarm: ${event.containerId}');
+///   // Pre-render the container UI here
+/// });
 /// ```
 class ContainerEvents {
   static final _openController =
       StreamController<ContainerOpenEvent>.broadcast();
   static final _closeController = StreamController<int>.broadcast();
+  static final _prewarmController =
+      StreamController<ContainerPrewarmEvent>.broadcast();
 
   static bool _initialized = false;
 
@@ -75,6 +99,13 @@ class ContainerEvents {
   /// Stream emitting the menu ID when containers close.
   static Stream<int> get onClose => _closeController.stream;
 
+  /// Stream emitting events when player looks at a container block.
+  ///
+  /// This allows pre-rendering the container UI for instant opening.
+  /// The event contains the container type ID.
+  static Stream<ContainerPrewarmEvent> get onPrewarm =>
+      _prewarmController.stream;
+
   /// NativeCallable for container open events.
   /// Uses .listener() to safely handle calls from any thread.
   static NativeCallable<_ContainerOpenCallbackNative>? _openCallable;
@@ -82,6 +113,10 @@ class ContainerEvents {
   /// NativeCallable for container close events.
   /// Uses .listener() to safely handle calls from any thread.
   static NativeCallable<_ContainerCloseCallbackNative>? _closeCallable;
+
+  /// NativeCallable for container prewarm events.
+  /// Uses .listener() to safely handle calls from any thread.
+  static NativeCallable<_ContainerPrewarmCallbackNative>? _prewarmCallable;
 
   /// Initialize container event callbacks.
   ///
@@ -110,6 +145,13 @@ class ContainerEvents {
         Void Function(Pointer<NativeFunction<_ContainerCloseCallbackNative>>),
         void Function(Pointer<NativeFunction<_ContainerCloseCallbackNative>>)>(
       'client_register_container_close_handler',
+    );
+
+    final registerPrewarmHandler = lib.lookupFunction<
+        Void Function(Pointer<NativeFunction<_ContainerPrewarmCallbackNative>>),
+        void Function(
+            Pointer<NativeFunction<_ContainerPrewarmCallbackNative>>)>(
+      'client_register_container_prewarm_handler',
     );
 
     // Create NativeCallable.listener - these are safe to call from ANY thread
@@ -144,9 +186,25 @@ class ContainerEvents {
       },
     );
 
+    _prewarmCallable = NativeCallable<_ContainerPrewarmCallbackNative>.listener(
+      (Pointer<Utf8> containerIdPtr) {
+        // Read string from malloc'd pointer (native code allocated it)
+        String containerId = '';
+
+        if (containerIdPtr.address != 0) {
+          containerId = containerIdPtr.toDartString();
+          // Free the malloc'd string
+          malloc.free(containerIdPtr);
+        }
+
+        _prewarmController.add(ContainerPrewarmEvent(containerId));
+      },
+    );
+
     // Register with native bridge
     registerOpenHandler(_openCallable!.nativeFunction);
     registerCloseHandler(_closeCallable!.nativeFunction);
+    registerPrewarmHandler(_prewarmCallable!.nativeFunction);
 
     _initialized = true;
   }
@@ -158,8 +216,10 @@ class ContainerEvents {
   static void dispose() {
     _openCallable?.close();
     _closeCallable?.close();
+    _prewarmCallable?.close();
     _openController.close();
     _closeController.close();
+    _prewarmController.close();
   }
 }
 
@@ -167,3 +227,4 @@ class ContainerEvents {
 typedef _ContainerOpenCallbackNative = Void Function(
     Int32 menuId, Int32 slotCount, Pointer<Utf8> containerId, Pointer<Utf8> title);
 typedef _ContainerCloseCallbackNative = Void Function(Int32 menuId);
+typedef _ContainerPrewarmCallbackNative = Void Function(Pointer<Utf8> containerId);

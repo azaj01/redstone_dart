@@ -95,6 +95,13 @@ class MinecraftGuiApp extends StatelessWidget {
               screenBuilder: (context) => const SimpleFurnaceScreen(),
               cacheSlotPositions: true,
             ),
+            // Animated Chest - demonstrates stateful animations with lid opening
+            GuiRoute(
+              title: 'Animated Chest',
+              containerBuilder: () => AnimatedChestContainerClient(),
+              screenBuilder: (context) => const AnimatedChestScreen(),
+              cacheSlotPositions: true,
+            ),
           ],
           // Show a test background when no container is open
           // This helps verify the Metal rendering pipeline is working
@@ -410,6 +417,97 @@ class _ColorTestWidgetState extends State<ColorTestWidget> {
             fontWeight: FontWeight.bold,
             shadows: [
               Shadow(color: Colors.black, blurRadius: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Animated Chest Container & Screen
+// =============================================================================
+
+/// Client-side container definition for the animated chest.
+/// Matches the server-side AnimatedChestContainer.
+class AnimatedChestContainerClient extends ContainerDefinition {
+  @override
+  String get id => 'example_mod:animated_chest';
+
+  @override
+  int get slotCount => 27; // Standard chest size (3 rows of 9)
+}
+
+/// Screen for the animated chest container.
+///
+/// Shows a standard 27-slot chest grid plus player inventory.
+class AnimatedChestScreen extends StatelessWidget {
+  const AnimatedChestScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: McPanel(
+          width: 176, // Standard Minecraft container width
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Title
+              const McText.title('Animated Chest'),
+              const SizedBox(height: 8),
+
+              // Container slots (3 rows x 9 columns = 27 slots)
+              for (int row = 0; row < 3; row++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int col = 0; col < 9; col++)
+                      SlotReporter(
+                        slotIndex: row * 9 + col,
+                        child: const McSlot(),
+                      ),
+                  ],
+                ),
+
+              const SizedBox(height: 12),
+
+              // Player inventory label
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: McText.label('Inventory'),
+              ),
+              const SizedBox(height: 4),
+
+              // Player main inventory (3 rows x 9 columns = 27 slots)
+              for (int row = 0; row < 3; row++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int col = 0; col < 9; col++)
+                      SlotReporter(
+                        slotIndex: 27 + row * 9 + col,
+                        child: const McSlot(),
+                      ),
+                  ],
+                ),
+
+              const SizedBox(height: 4),
+
+              // Player hotbar (1 row x 9 columns = 9 slots)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int col = 0; col < 9; col++)
+                    SlotReporter(
+                      slotIndex: 54 + col,
+                      child: const McSlot(),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

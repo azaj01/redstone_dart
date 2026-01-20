@@ -78,6 +78,16 @@ class BlockElement {
   final bool shade;
   final int lightEmission;
 
+  /// Optional name to identify this element for per-element animations.
+  /// Used with [BlockAnimation.stateful] to animate specific elements.
+  final String? name;
+
+  /// Whether this element should receive animation transforms.
+  /// Defaults to `true` for backward compatibility.
+  /// Set to `false` for elements that should remain static while other
+  /// elements animate (e.g., a chest body while the lid animates).
+  final bool animated;
+
   const BlockElement({
     required this.from,
     required this.to,
@@ -85,6 +95,8 @@ class BlockElement {
     this.rotation,
     this.shade = true,
     this.lightEmission = 0,
+    this.name,
+    this.animated = true,
   });
 
   Map<String, dynamic> toJson() => {
@@ -96,6 +108,8 @@ class BlockElement {
         if (rotation != null) 'rotation': rotation!.toJson(),
         if (!shade) 'shade': shade,
         if (lightEmission > 0) 'light_emission': lightEmission,
+        if (name != null) '__name': name,
+        if (!animated) '__animated': animated,
       };
 }
 

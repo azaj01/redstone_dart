@@ -493,20 +493,9 @@ public class ProxyRegistry {
             AnimationRegistry.AnimationConfig animConfig = AnimationRegistry.getConfig(blockId);
 
             DartBlockProxy block;
-            if (animConfig != null) {
-                // Create a block with animation support
-                // Animation blocks use AnimatedBlockEntity for smooth client-side rendering
-                block = new DartBlockWithAnimation(
-                    properties,
-                    handlerId,
-                    settings,
-                    blockId
-                );
-                LOGGER.info("Creating block with animation: {}:{} (type={})",
-                    namespace, path, animConfig.animationType());
-            } else if (beConfig != null) {
-                // Create a block with entity support
-                // Pass the blockId so DartBlockWithEntity can look up its BlockEntityType
+            if (beConfig != null) {
+                // Block with entity support (may also have animation)
+                // DartBlockWithEntity handles both container AND animation now
                 block = new DartBlockWithEntity(
                     properties,
                     handlerId,
@@ -516,11 +505,25 @@ public class ProxyRegistry {
                     beConfig.containerTitle(),
                     blockId
                 );
-                LOGGER.info("Creating block with entity: {}:{} (beHandler={}, inventory={})",
-                    namespace, path, beConfig.handlerId(), beConfig.inventorySize());
+                if (animConfig != null) {
+                    LOGGER.info("Creating block with entity AND animation: {}:{}", namespace, path);
+                } else {
+                    LOGGER.info("Creating block with entity: {}:{}", namespace, path);
+                }
+            } else if (animConfig != null) {
+                // Animation-only block (no container)
+                block = new DartBlockWithAnimation(
+                    properties,
+                    handlerId,
+                    settings,
+                    blockId
+                );
+                LOGGER.info("Creating block with animation: {}:{} (type={})",
+                    namespace, path, animConfig.animationType());
             } else {
-                // Create a regular block
+                // Basic block
                 block = new DartBlockProxy(properties, handlerId, settings);
+                LOGGER.info("Creating basic block: {}:{}", namespace, path);
             }
 
             blocks.put(handlerId, block);
@@ -560,7 +563,16 @@ public class ProxyRegistry {
                 entries.accept(blockItem);
             });
 
-            String suffix = animConfig != null ? " (with animation)" : (beConfig != null ? " (with block entity)" : "");
+            String suffix;
+            if (beConfig != null && animConfig != null) {
+                suffix = " (with block entity AND animation)";
+            } else if (beConfig != null) {
+                suffix = " (with block entity)";
+            } else if (animConfig != null) {
+                suffix = " (with animation)";
+            } else {
+                suffix = "";
+            }
             LOGGER.info("Registered queued block: {}:{} with handler ID {}{}", namespace, path, handlerId, suffix);
             return true;
         } catch (Exception e) {

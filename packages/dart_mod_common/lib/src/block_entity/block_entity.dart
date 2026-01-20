@@ -2,6 +2,7 @@
 library;
 
 import 'block_entity_settings.dart';
+import '../jni/generic_bridge.dart';
 import '../types.dart';
 
 // Minecraft BlockPos bit packing constants (matches Java BlockPos.asLong)
@@ -168,4 +169,133 @@ mixin ContainerOpenCloseHandler on BlockEntity {
 
   /// Called when a player closes this container.
   void onContainerClose();
+}
+
+/// Mixin for block entities with stateful animations.
+///
+/// Use this mixin in your block entity to control state-driven animations.
+/// The state values are smoothly interpolated in Java for 60fps rendering.
+///
+/// ## Example
+///
+/// ```dart
+/// class MyChestEntity extends ContainerBlockEntity<MyChestContainer>
+///     with ContainerOpenCloseHandler, AnimatedBlockEntity {
+///   @override
+///   void onContainerOpen() {
+///     setAnimationState('lidOpen', true);
+///   }
+///
+///   @override
+///   void onContainerClose() {
+///     setAnimationState('lidOpen', false);
+///   }
+/// }
+/// ```
+mixin AnimatedBlockEntity on BlockEntity {
+  /// Set a boolean animation state.
+  ///
+  /// Converts true to 1.0 and false to 0.0.
+  /// The value will be smoothly interpolated in Java.
+  ///
+  /// [key] must match a state key defined in the block's animation config.
+  void setAnimationState(String key, bool value) {
+    setAnimationStateDouble(key, value ? 1.0 : 0.0);
+  }
+
+  /// Set a double animation state value.
+  ///
+  /// The value will be smoothly interpolated in Java toward this target.
+  /// Use values between 0.0 and 1.0 for best results with easing functions.
+  ///
+  /// [key] must match a state key defined in the block's animation config.
+  /// [speed] optionally overrides the interpolation speed (default uses config value).
+  void setAnimationStateDouble(String key, double value, {double? speed}) {
+    final hash = blockPosHash;
+    if (hash == null) {
+      // Block entity not yet placed in world
+      return;
+    }
+
+    // Call Java's DartBridge.setAnimationState via JNI
+    // Signature: (JLjava/lang/String;DD)V
+    // J = long (blockPosHash), String (key), D = double (value), D = double (speed)
+    GenericJniBridge.callStaticVoidMethod(
+      'com/redstone/DartBridge',
+      'setAnimationState',
+      '(JLjava/lang/String;DD)V',
+      [hash, key, value, speed ?? -1.0], // -1.0 means use config speed
+    );
+  }
+
+  /// Set an integer animation state value.
+  ///
+  /// Converts to double for interpolation.
+  void setAnimationStateInt(String key, int value) {
+    setAnimationStateDouble(key, value.toDouble());
+  }
+
+  /// Sets the rotation for the animation directly (in degrees).
+  ///
+  /// Unlike [setAnimationState] which sets abstract values that are
+  /// interpreted based on the animation config, this sets the actual
+  /// rotation that will be rendered.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Rotate 90 degrees around the X axis
+  /// setAnimationRotation(x: 90.0);
+  ///
+  /// // Rotate 45 degrees around Y and 30 degrees around Z
+  /// setAnimationRotation(y: 45.0, z: 30.0);
+  /// ```
+  void setAnimationRotation({double? x, double? y, double? z}) {
+    if (x != null) setAnimationStateDouble('rotationX', x);
+    if (y != null) setAnimationStateDouble('rotationY', y);
+    if (z != null) setAnimationStateDouble('rotationZ', z);
+  }
+
+  /// Sets the translation for the animation directly (in blocks).
+  ///
+  /// Example:
+  /// ```dart
+  /// // Move up by 0.5 blocks
+  /// setAnimationTranslation(y: 0.5);
+  /// ```
+  void setAnimationTranslation({double? x, double? y, double? z}) {
+    if (x != null) setAnimationStateDouble('translateX', x);
+    if (y != null) setAnimationStateDouble('translateY', y);
+    if (z != null) setAnimationStateDouble('translateZ', z);
+  }
+
+  /// Sets the scale for the animation directly.
+  ///
+  /// A value of 1.0 is normal size.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Scale to 1.5x on all axes
+  /// setAnimationScale(x: 1.5, y: 1.5, z: 1.5);
+  /// ```
+  void setAnimationScale({double? x, double? y, double? z}) {
+    if (x != null) setAnimationStateDouble('scaleX', x);
+    if (y != null) setAnimationStateDouble('scaleY', y);
+    if (z != null) setAnimationStateDouble('scaleZ', z);
+  }
+
+  /// Sets the pivot point for the animation (0.0 to 1.0 relative to block).
+  ///
+  /// The pivot is the point around which rotation and scaling occur.
+  /// Default is (0.5, 0.5, 0.5) which is the center of the block.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Pivot at the back-top edge (like a chest lid hinge)
+  /// setAnimationPivot(x: 0.5, y: 1.0, z: 0.0);
+  /// ```
+  void setAnimationPivot({double? x, double? y, double? z}) {
+    if (x != null) setAnimationStateDouble('pivotX', x);
+    if (y != null) setAnimationStateDouble('pivotY', y);
+    if (z != null) setAnimationStateDouble('pivotZ', z);
+  }
 }

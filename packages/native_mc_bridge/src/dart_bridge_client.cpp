@@ -174,6 +174,9 @@ public:
     // Container data changed handler (for push-based updates)
     void setContainerDataChangedHandler(ContainerDataChangedCallback cb) { container_data_changed_handler_ = cb; }
 
+    // Container prewarm handler (for preloading when player looks at container)
+    void setContainerPrewarmHandler(ContainerPrewarmCallback cb) { container_prewarm_handler_ = cb; }
+
     // Network packet handler
     void setPacketReceivedHandler(ClientPacketReceivedCallback cb) { packet_received_handler_ = cb; }
 
@@ -289,6 +292,10 @@ public:
         if (container_data_changed_handler_) container_data_changed_handler_(menu_id, slot_index, value);
     }
 
+    void dispatchContainerPrewarm(const char* container_id) {
+        if (container_prewarm_handler_) container_prewarm_handler_(container_id);
+    }
+
     void clear() {
         screen_init_handler_ = nullptr;
         screen_tick_handler_ = nullptr;
@@ -313,6 +320,7 @@ public:
         container_open_handler_ = nullptr;
         container_close_handler_ = nullptr;
         container_data_changed_handler_ = nullptr;
+        container_prewarm_handler_ = nullptr;
         packet_received_handler_ = nullptr;
     }
 
@@ -343,6 +351,7 @@ private:
     ContainerOpenCallback container_open_handler_ = nullptr;
     ContainerCloseCallback container_close_handler_ = nullptr;
     ContainerDataChangedCallback container_data_changed_handler_ = nullptr;
+    ContainerPrewarmCallback container_prewarm_handler_ = nullptr;
     ClientPacketReceivedCallback packet_received_handler_ = nullptr;
 };
 
@@ -997,6 +1006,9 @@ void client_register_container_close_handler(ContainerCloseCallback cb) { dart_m
 // Container data changed callback registration (for push-based updates)
 void client_register_container_data_changed_handler(ContainerDataChangedCallback cb) { dart_mc_bridge::ClientCallbackRegistry::instance().setContainerDataChangedHandler(cb); }
 
+// Container prewarm callback registration (for preloading when player looks at container)
+void client_register_container_prewarm_handler(ContainerPrewarmCallback cb) { dart_mc_bridge::ClientCallbackRegistry::instance().setContainerPrewarmHandler(cb); }
+
 // ==========================================================================
 // Event Dispatch (called from Java via JNI)
 // Client-side uses direct FFI calls (single thread, no isolate switching)
@@ -1150,6 +1162,21 @@ void client_dispatch_container_data_changed(int32_t menu_id, int32_t slot_index,
 
     // Dispatch container data change to Dart
     dart_mc_bridge::ClientCallbackRegistry::instance().dispatchContainerDataChanged(menu_id, slot_index, value);
+}
+
+void client_dispatch_container_prewarm(const char* container_id) {
+    CLIENT_DISPATCH_CHECK();
+
+    // Allocate persistent copy of string using malloc (Dart will free it)
+    char* container_id_copy = nullptr;
+    if (container_id && container_id[0] != '\0') {
+        size_t len = strlen(container_id) + 1;
+        container_id_copy = (char*)malloc(len);
+        if (container_id_copy) memcpy(container_id_copy, container_id, len);
+    }
+
+    // Dispatch container prewarm event to Dart
+    dart_mc_bridge::ClientCallbackRegistry::instance().dispatchContainerPrewarm(container_id_copy);
 }
 
 // ==========================================================================

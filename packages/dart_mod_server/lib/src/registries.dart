@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_mod_common/dart_mod_common.dart';
+import 'package:dart_mod_common/src/jni/jni_internal.dart';
 
 import 'bridge.dart';
 
@@ -196,13 +197,47 @@ class BlockRegistry extends Registry<CustomBlock> {
     if (block.animation != null && handlerId != 0) {
       final animationJson = block.animation!.toJson();
       final animationType = animationJson['type'] as String;
+
+      // Extract element animation info from the model (if using ElementsModel)
+      // This tells the renderer which elements should be animated vs static
+      String elementAnimationJson = '';
+      if (block.model is ElementsModel) {
+        final elementsModel = block.model! as ElementsModel;
+        final animatedIndices = <int>[];
+        for (int i = 0; i < elementsModel.elements.length; i++) {
+          if (elementsModel.elements[i].animated) {
+            animatedIndices.add(i);
+          }
+        }
+        // Only include if there are any static elements (not all animated)
+        if (animatedIndices.length != elementsModel.elements.length) {
+          elementAnimationJson = jsonEncode({
+            'animatedIndices': animatedIndices,
+            'totalElements': elementsModel.elements.length,
+          });
+        }
+      }
+
       ServerBridge.queueAnimationRegistration(
         handlerId: handlerId,
         blockId: block.id,
         animationType: animationType,
         animationJson: jsonEncode(animationJson),
+        elementAnimationJson: elementAnimationJson,
       );
       print('BlockRegistry: Queued animation for ${block.id} (type: $animationType)');
+
+      // If this is an ElementsModel with animated elements, register the animated
+      // elements JSON for client-side model baking
+      if (block.model is ElementsModel) {
+        final animatedModelJson = _generateAnimatedElementsJson(
+          block.id,
+          block.model! as ElementsModel,
+        );
+        if (animatedModelJson != null) {
+          _registerAnimatedElementsJson(block.id, animatedModelJson);
+        }
+      }
     }
 
     return handlerId;
@@ -240,6 +275,93 @@ class BlockRegistry extends Registry<CustomBlock> {
 
   /// Get all registered block IDs.
   Iterable<String> get registeredBlockIds => registeredIds;
+
+  /// Generate the animated elements model JSON from an ElementsModel.
+  ///
+  /// This creates a JSON string containing only the animated elements (where
+  /// `animated: true`, which is the default) and the texture map converted to
+  /// Minecraft resource location format.
+  ///
+  /// Returns null if there are no animated elements.
+  static String? _generateAnimatedElementsJson(
+    String blockId,
+    ElementsModel model,
+  ) {
+    final namespace = blockId.split(':')[0];
+
+    // Filter to only animated elements
+    final animatedElements = <Map<String, dynamic>>[];
+    for (final element in model.elements) {
+      if (element.animated) {
+        // Convert element to JSON, removing internal markers
+        final elementJson = element.toJson();
+        elementJson.remove('__animated');
+        elementJson.remove('__name');
+        animatedElements.add(elementJson);
+      }
+    }
+
+    // If no animated elements, return null
+    if (animatedElements.isEmpty) {
+      return null;
+    }
+
+    // Convert texture paths to Minecraft resource location format
+    // e.g., 'assets/textures/block/chest.png' -> 'example_mod:block/chest'
+    final mcTextures = <String, String>{};
+    for (final entry in model.textures.entries) {
+      mcTextures[entry.key] = _filePathToTextureRef(namespace, entry.value);
+    }
+
+    // Build the model JSON
+    final modelJson = <String, dynamic>{
+      'textures': mcTextures,
+      'elements': animatedElements,
+    };
+
+    if (model.parent != null) {
+      modelJson['parent'] = model.parent;
+    }
+    if (model.ambientOcclusion != null) {
+      modelJson['ambientocclusion'] = model.ambientOcclusion;
+    }
+
+    return jsonEncode(modelJson);
+  }
+
+  /// Convert a file path to a Minecraft texture reference.
+  ///
+  /// e.g., 'assets/textures/block/hello.png' -> 'mymod:block/hello'
+  static String _filePathToTextureRef(String namespace, String filePath) {
+    var ref = filePath;
+    if (ref.startsWith('assets/textures/')) {
+      ref = ref.substring('assets/textures/'.length);
+    }
+    if (ref.endsWith('.png')) {
+      ref = ref.substring(0, ref.length - 4);
+    }
+    return '$namespace:$ref';
+  }
+
+  /// Register animated elements JSON with the Java AnimationRegistry.
+  ///
+  /// This calls AnimationRegistry.registerAnimatedElementsJson() via JNI
+  /// so the client renderer can bake the animated model at runtime.
+  static void _registerAnimatedElementsJson(String blockId, String modelJson) {
+    // Skip in datagen mode - no JNI available
+    if (ServerBridge.isDatagenMode) {
+      print('BlockRegistry: Skipping animated elements registration in datagen mode');
+      return;
+    }
+
+    GenericJniBridge.callStaticVoidMethod(
+      'com/redstone/blockentity/AnimationRegistry',
+      'registerAnimatedElementsJson',
+      '(Ljava/lang/String;Ljava/lang/String;)V',
+      [blockId, modelJson],
+    );
+    print('BlockRegistry: Registered animated elements JSON for $blockId (${modelJson.length} chars)');
+  }
 
   /// Internal freeze implementation with datagen mode check.
   void _freezeWithDatagenCheck() {

@@ -171,12 +171,9 @@ void _onBlockEntitySetRemoved(int handlerId, int blockPosHash) {
 /// Called when a player opens a block entity's container.
 @pragma('vm:entry-point')
 void _onBlockEntityContainerOpen(int handlerId, int blockPosHash) {
-  print('BlockEntityCallbacks: _onBlockEntityContainerOpen called! handlerId=$handlerId, blockPosHash=$blockPosHash');
   try {
     final instance = BlockEntityRegistry.get(handlerId, blockPosHash);
-    print('BlockEntityCallbacks: Got instance: $instance, is ContainerOpenCloseHandler: ${instance is ContainerOpenCloseHandler}');
     if (instance is ContainerOpenCloseHandler) {
-      print('BlockEntityCallbacks: Calling onContainerOpen on instance');
       instance.onContainerOpen();
     }
   } catch (e, stack) {
@@ -188,12 +185,9 @@ void _onBlockEntityContainerOpen(int handlerId, int blockPosHash) {
 /// Called when a player closes a block entity's container.
 @pragma('vm:entry-point')
 void _onBlockEntityContainerClose(int handlerId, int blockPosHash) {
-  print('BlockEntityCallbacks: _onBlockEntityContainerClose called! handlerId=$handlerId, blockPosHash=$blockPosHash');
   try {
     final instance = BlockEntityRegistry.get(handlerId, blockPosHash);
-    print('BlockEntityCallbacks: Got instance: $instance, is ContainerOpenCloseHandler: ${instance is ContainerOpenCloseHandler}');
     if (instance is ContainerOpenCloseHandler) {
-      print('BlockEntityCallbacks: Calling onContainerClose on instance');
       instance.onContainerClose();
     }
   } catch (e, stack) {

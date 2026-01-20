@@ -9,6 +9,27 @@ import 'dart:math';
 /// Axis enum for 3D rotations
 enum Axis3D { x, y, z }
 
+/// Easing functions for stateful animations
+enum AnimationEasing {
+  /// Linear interpolation (constant speed)
+  linear,
+
+  /// Slow start, fast end
+  easeIn,
+
+  /// Fast start, slow end
+  easeOut,
+
+  /// Slow start and end, fast middle
+  easeInOut,
+
+  /// Bouncy effect at the end
+  bounce,
+
+  /// Elastic/springy effect
+  elastic,
+}
+
 /// 3D vector for pivot points and positions
 class AnimationVec3 {
   final double x, y, z;
@@ -21,6 +42,28 @@ class AnimationVec3 {
   static const origin = AnimationVec3(0, 0, 0);
 
   List<double> toJson() => [x, y, z];
+}
+
+/// Configuration for a single stateful animation input.
+///
+/// Each input represents a state key that can be set from Dart
+/// and will be smoothly interpolated in Java.
+class StatefulAnimationInput {
+  /// Speed of interpolation per tick (0.1 = 10 ticks to complete)
+  final double interpolationSpeed;
+
+  /// Default value when no state has been set
+  final double defaultValue;
+
+  const StatefulAnimationInput({
+    this.interpolationSpeed = 0.1,
+    this.defaultValue = 0.0,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'speed': interpolationSpeed,
+        'default': defaultValue,
+      };
 }
 
 /// Animation state that gets synced to the renderer
@@ -143,6 +186,10 @@ sealed class BlockAnimation {
       !animations.any((a) => a is CombinedAnimation),
       'Cannot nest combined animations',
     );
+    assert(
+      animations.where((a) => a is StatefulAnimation).length <= 1,
+      'Can only have one stateful animation in a combination',
+    );
     return CombinedAnimation(animations: animations);
   }
 
@@ -158,6 +205,73 @@ sealed class BlockAnimation {
   factory BlockAnimation.custom(
     void Function(AnimationState state, double time) update,
   ) = CustomAnimation;
+
+  /// State-driven animation that responds to dynamic values.
+  ///
+  /// Unlike time-based animations, stateful animations are driven by
+  /// state values set from the block entity (like 'lidOpen', 'powered').
+  /// Interpolation happens in Java for smooth 60fps rendering.
+  ///
+  /// Example - Chest lid opening:
+  /// ```dart
+  /// animation: BlockAnimation.stateful(
+  ///   inputs: {
+  ///     'lidOpen': StatefulAnimationInput(interpolationSpeed: 0.15),
+  ///   },
+  ///   easing: AnimationEasing.easeOut,
+  ///   transform: (values, state) {
+  ///     state.rotationX = values['lidOpen']! * -90;  // 0° closed, -90° open
+  ///     state.pivot = AnimationVec3(0.5, 1.0, 0.0);  // Pivot at back-top
+  ///   },
+  /// )
+  /// ```
+  ///
+  /// Example - Per-element animation (chest with separate lid):
+  /// ```dart
+  /// // In model definition, mark elements:
+  /// BlockElement(name: 'body', animated: false, ...)  // Static
+  /// BlockElement(name: 'lid', animated: true, ...)    // Animates
+  ///
+  /// animation: BlockAnimation.stateful(
+  ///   inputs: {'lidOpen': StatefulAnimationInput(interpolationSpeed: 0.15)},
+  ///   transform: (values, state) {
+  ///     state.rotationX = values['lidOpen']! * -90;
+  ///   },
+  /// )
+  /// ```
+  ///
+  /// Elements with `animated: false` in the model will render statically,
+  /// while elements with `animated: true` (the default) will receive
+  /// the animation transforms.
+  ///
+  /// Example - Multiple inputs:
+  /// ```dart
+  /// animation: BlockAnimation.stateful(
+  ///   inputs: {
+  ///     'open': StatefulAnimationInput(interpolationSpeed: 0.1),
+  ///     'powered': StatefulAnimationInput(interpolationSpeed: 0.2),
+  ///   },
+  ///   transform: (values, state) {
+  ///     final openness = values['open']!;
+  ///     final powered = values['powered']!;
+  ///     state.rotationX = openness * -90;
+  ///     state.scaleX = state.scaleY = state.scaleZ = 1.0 + powered * 0.1;
+  ///   },
+  /// )
+  /// ```
+  factory BlockAnimation.stateful({
+    required Map<String, StatefulAnimationInput> inputs,
+    AnimationEasing easing = AnimationEasing.linear,
+    required void Function(Map<String, double> values, AnimationState state)
+        transform,
+  }) {
+    assert(inputs.isNotEmpty, 'Must provide at least one input');
+    return StatefulAnimation(
+      inputs: inputs,
+      easing: easing,
+      transform: transform,
+    );
+  }
 
   /// Apply this animation to the given state at the given time
   void apply(AnimationState state, double time);
@@ -293,5 +407,62 @@ final class CustomAnimation extends BlockAnimation {
   @override
   Map<String, dynamic> toJson() => {
         'type': 'custom',
+      };
+}
+
+/// State-driven animation that responds to dynamic values.
+///
+/// Unlike time-based animations, stateful animations are driven by
+/// state values set from Dart (like 'lidOpen', 'powered', etc).
+/// The interpolation happens in Java for smooth 60fps rendering.
+///
+/// Example:
+/// ```dart
+/// animation: BlockAnimation.stateful(
+///   inputs: {
+///     'lidOpen': StatefulAnimationInput(interpolationSpeed: 0.15),
+///   },
+///   easing: AnimationEasing.easeOut,
+///   transform: (values, state) {
+///     state.rotationX = values['lidOpen']! * -90;
+///     state.pivot = AnimationVec3(0.5, 1.0, 0.0);
+///   },
+/// )
+/// ```
+final class StatefulAnimation extends BlockAnimation {
+  /// Map of state key to input configuration
+  final Map<String, StatefulAnimationInput> inputs;
+
+  /// Easing function for interpolation
+  final AnimationEasing easing;
+
+  /// Transform function that converts state values to animation state.
+  /// Called with current interpolated values for each input key.
+  final void Function(Map<String, double> values, AnimationState state)
+      transform;
+
+  const StatefulAnimation({
+    required this.inputs,
+    this.easing = AnimationEasing.linear,
+    required this.transform,
+  });
+
+  @override
+  void apply(AnimationState state, double time) {
+    // Stateful animations don't use time-based apply.
+    // The transform is applied in Java based on interpolated state values.
+    // This is called during Dart-side asset generation with default values.
+    final defaultValues = <String, double>{};
+    for (final entry in inputs.entries) {
+      defaultValues[entry.key] = entry.value.defaultValue;
+    }
+    transform(defaultValues, state);
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'stateful',
+        'inputs': inputs.map((key, input) => MapEntry(key, input.toJson())),
+        'easing': easing.name,
       };
 }

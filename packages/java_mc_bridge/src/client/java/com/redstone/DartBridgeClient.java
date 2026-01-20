@@ -889,6 +889,50 @@ public class DartBridgeClient {
     }
 
     // ==========================================================================
+    // Container Screen Pre-warming
+    // ==========================================================================
+
+    /**
+     * Native method to dispatch container pre-warm event to Dart.
+     * This tells Flutter to start rendering the container UI in the background.
+     *
+     * @param containerId The container type ID (e.g., "mymod:custom_chest")
+     */
+    private static native void dispatchContainerPrewarmNative(String containerId);
+
+    /**
+     * Pre-warm a container screen by asking Flutter to render it offscreen.
+     * Called when player looks at a container block (before clicking).
+     *
+     * This sends window metrics and triggers Flutter to render the container UI
+     * so that when the player actually opens the container, the frame is already
+     * ready for instant display.
+     *
+     * @param containerId The container type ID
+     * @param width Screen width in GUI coordinates
+     * @param height Screen height in GUI coordinates
+     * @param guiScale The GUI scale factor
+     */
+    public static void prewarmContainerScreen(String containerId, int width, int height, int guiScale) {
+        if (!clientInitialized.get()) {
+            return;
+        }
+
+        LOGGER.debug("[ContainerPrewarm] Pre-warming container '{}' ({}x{} @{}x)", containerId, width, height, guiScale);
+
+        // Send window metrics first so Flutter knows the size
+        int fbWidth = width * guiScale;
+        int fbHeight = height * guiScale;
+        sendWindowMetrics(fbWidth, fbHeight, (double) guiScale);
+
+        // Dispatch prewarm event to Dart
+        dispatchContainerPrewarmNative(containerId);
+
+        // Schedule a frame
+        scheduleFrame();
+    }
+
+    // ==========================================================================
     // Container Screen Event Dispatch (native methods)
     // ==========================================================================
 

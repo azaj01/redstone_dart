@@ -98,6 +98,9 @@ typedef void (*ContainerCloseCallback)(int32_t menu_id);
 // Container data changed callback (for push-based container data updates)
 typedef void (*ContainerDataChangedCallback)(int32_t menu_id, int32_t slot_index, int32_t value);
 
+// Container prewarm callback (for preloading container screens when player looks at them)
+typedef void (*ContainerPrewarmCallback)(const char* container_id);
+
 // ==========================================================================
 // Callback Registration (called from Dart via FFI)
 // ==========================================================================
@@ -132,6 +135,9 @@ void client_register_container_close_handler(ContainerCloseCallback cb);
 
 // Container data changed callback registration (for push-based updates)
 void client_register_container_data_changed_handler(ContainerDataChangedCallback cb);
+
+// Container prewarm callback registration (for preloading when player looks at container)
+void client_register_container_prewarm_handler(ContainerPrewarmCallback cb);
 
 // ==========================================================================
 // Event Dispatch (called from Java via JNI)
@@ -170,6 +176,9 @@ void client_dispatch_container_close(int32_t menu_id);
 
 // Container data changed dispatch (for push-based updates from Java)
 void client_dispatch_container_data_changed(int32_t menu_id, int32_t slot_index, int32_t value);
+
+// Container prewarm dispatch (for preloading when player looks at container)
+void client_dispatch_container_prewarm(const char* container_id);
 
 // ==========================================================================
 // Network Packet Functions (Client-side)

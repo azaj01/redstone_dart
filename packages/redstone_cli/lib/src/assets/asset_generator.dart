@@ -143,6 +143,13 @@ class AssetGenerator {
   }
 
   /// Generate a block model using custom elements
+  ///
+  /// For animated blocks with per-element animation, this generates two models:
+  /// - `{blockName}.json` - contains ONLY static elements (animated: false)
+  /// - `{blockName}_animated.json` - contains ONLY animated elements (animated: true, default)
+  ///
+  /// The renderer will load the static model and render it without transforms,
+  /// then load the animated model and render it with animation transforms.
   Future<void> _generateElementsBlockModel(
     String namespace,
     String blockName,
@@ -160,25 +167,102 @@ class AssetGenerator {
           _filePathToTextureRef(namespace, entry.value as String);
     }
 
-    final blockModel = <String, dynamic>{
-      'textures': mcTextures,
-      'elements': elements, // Already in correct format from Dart toJson()
-    };
+    // Check if any elements have __animated: false (per-element animation)
+    final staticElements = <dynamic>[];
+    final animatedElements = <dynamic>[];
 
-    if (parent != null) {
-      blockModel['parent'] = parent;
-    }
-    if (ambientOcclusion != null) {
-      blockModel['ambientocclusion'] = ambientOcclusion;
+    for (final element in elements) {
+      final elementMap = element as Map<String, dynamic>;
+      // __animated is our internal marker; default is true
+      final isAnimated = elementMap['__animated'] ?? true;
+
+      // Create a clean copy without our internal markers
+      final cleanElement = Map<String, dynamic>.from(elementMap);
+      cleanElement.remove('__animated');
+      cleanElement.remove('__name');
+
+      if (isAnimated) {
+        animatedElements.add(cleanElement);
+      } else {
+        staticElements.add(cleanElement);
+      }
     }
 
-    final path = p.join(
-      project.minecraftAssetsDir(namespace),
-      'models',
-      'block',
-      '$blockName.json',
-    );
-    await _writeJson(path, blockModel);
+    // Determine if we need to split the model
+    final hasStaticElements = staticElements.isNotEmpty;
+    final hasAnimatedElements = animatedElements.isNotEmpty;
+    final needsSplit = hasStaticElements && hasAnimatedElements;
+
+    if (needsSplit) {
+      // Generate static model (body, etc.)
+      final staticModel = <String, dynamic>{
+        'textures': mcTextures,
+        'elements': staticElements,
+      };
+      if (parent != null) staticModel['parent'] = parent;
+      if (ambientOcclusion != null) {
+        staticModel['ambientocclusion'] = ambientOcclusion;
+      }
+
+      final staticPath = p.join(
+        project.minecraftAssetsDir(namespace),
+        'models',
+        'block',
+        '$blockName.json',
+      );
+      await _writeJson(staticPath, staticModel);
+
+      // Generate animated model (lid, latch, etc.)
+      final animatedModel = <String, dynamic>{
+        'textures': mcTextures,
+        'elements': animatedElements,
+      };
+      if (parent != null) animatedModel['parent'] = parent;
+      if (ambientOcclusion != null) {
+        animatedModel['ambientocclusion'] = ambientOcclusion;
+      }
+
+      final animatedPath = p.join(
+        project.minecraftAssetsDir(namespace),
+        'models',
+        'block',
+        '${blockName}_animated.json',
+      );
+      await _writeJson(animatedPath, animatedModel);
+
+      print(
+          'Generated split models for $namespace:$blockName (${staticElements.length} static, ${animatedElements.length} animated elements)');
+    } else {
+      // No split needed - generate single model with all elements
+      // Clean the elements of internal markers
+      final cleanElements = elements.map((e) {
+        final elementMap = e as Map<String, dynamic>;
+        final clean = Map<String, dynamic>.from(elementMap);
+        clean.remove('__animated');
+        clean.remove('__name');
+        return clean;
+      }).toList();
+
+      final blockModel = <String, dynamic>{
+        'textures': mcTextures,
+        'elements': cleanElements,
+      };
+
+      if (parent != null) {
+        blockModel['parent'] = parent;
+      }
+      if (ambientOcclusion != null) {
+        blockModel['ambientocclusion'] = ambientOcclusion;
+      }
+
+      final path = p.join(
+        project.minecraftAssetsDir(namespace),
+        'models',
+        'block',
+        '$blockName.json',
+      );
+      await _writeJson(path, blockModel);
+    }
   }
 
   /// Generate item model for a block (references the block model as parent)
