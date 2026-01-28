@@ -54,9 +54,16 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
     private static final int MIN_SURFACE_SIZE = 64;
     private static final int MAX_SURFACE_SIZE = 1024;
 
-    // Cache of entity ID -> surface ID for entities with routes
+    // Cache of entity ID -> surface info for entities with routes
     // This ensures we don't create duplicate surfaces for the same entity
-    private static final Map<Integer, Long> entitySurfaceCache = new ConcurrentHashMap<>();
+    // and allows us to detect dimension changes for resizing
+    private static final Map<Integer, SurfaceCacheEntry> entitySurfaceCache = new ConcurrentHashMap<>();
+
+    /**
+     * Cache entry storing surface ID and last known pixel dimensions.
+     * Used to detect when dimensions change and surface needs resizing.
+     */
+    private record SurfaceCacheEntry(long surfaceId, int pixelWidth, int pixelHeight) {}
 
     public FlutterDisplayRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -65,6 +72,7 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
 
     /**
      * Get or create a surface for an entity with a route.
+     * Also handles resizing the surface if dimensions have changed.
      * Returns 0 if no route is set (use main surface).
      */
     private long getOrCreateSurface(FlutterDisplayRenderState state) {
@@ -76,12 +84,26 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
             return 0;
         }
 
+        // Calculate current pixel resolution based on display size
+        int pixelWidth = calculatePixelSize(state.displayWidth);
+        int pixelHeight = calculatePixelSize(state.displayHeight);
+
         // Check if we already have a surface for this entity
-        Long existingSurface = entitySurfaceCache.get(entityId);
-        if (existingSurface != null && existingSurface > 0) {
+        SurfaceCacheEntry existingEntry = entitySurfaceCache.get(entityId);
+        if (existingEntry != null && existingEntry.surfaceId > 0) {
             // Verify the surface still exists
-            if (DartBridgeClient.surfaceExists(existingSurface)) {
-                return existingSurface;
+            if (DartBridgeClient.surfaceExists(existingEntry.surfaceId)) {
+                // Check if dimensions changed - if so, resize the surface
+                if (existingEntry.pixelWidth != pixelWidth || existingEntry.pixelHeight != pixelHeight) {
+                    LOGGER.info("Resizing surface {} for entity {} from {}x{} to {}x{}",
+                        existingEntry.surfaceId, entityId,
+                        existingEntry.pixelWidth, existingEntry.pixelHeight,
+                        pixelWidth, pixelHeight);
+                    DartBridgeClient.setSurfaceSize(existingEntry.surfaceId, pixelWidth, pixelHeight);
+                    // Update cache with new dimensions
+                    entitySurfaceCache.put(entityId, new SurfaceCacheEntry(existingEntry.surfaceId, pixelWidth, pixelHeight));
+                }
+                return existingEntry.surfaceId;
             }
             // Surface was destroyed, remove from cache
             entitySurfaceCache.remove(entityId);
@@ -95,15 +117,11 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
             return 0;
         }
 
-        // Calculate pixel resolution based on display size
-        int pixelWidth = calculatePixelSize(state.displayWidth);
-        int pixelHeight = calculatePixelSize(state.displayHeight);
-
         long surfaceId = manager.createSurface(pixelWidth, pixelHeight, route);
         if (surfaceId > 0) {
             LOGGER.info("Created surface {} for entity {} with route '{}', resolution {}x{}",
                 surfaceId, entityId, route, pixelWidth, pixelHeight);
-            entitySurfaceCache.put(entityId, surfaceId);
+            entitySurfaceCache.put(entityId, new SurfaceCacheEntry(surfaceId, pixelWidth, pixelHeight));
         } else {
             LOGGER.warn("Failed to create surface for entity {} with route '{}'", entityId, route);
         }
@@ -126,13 +144,13 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
      * Should be called when entity is unloaded/destroyed.
      */
     public static void cleanupEntitySurface(int entityId) {
-        Long surfaceId = entitySurfaceCache.remove(entityId);
-        if (surfaceId != null && surfaceId > 0) {
+        SurfaceCacheEntry entry = entitySurfaceCache.remove(entityId);
+        if (entry != null && entry.surfaceId > 0) {
             FlutterTextureManager manager = FlutterTextureManager.getInstance();
             if (manager != null) {
-                manager.destroySurface(surfaceId);
+                manager.destroySurface(entry.surfaceId);
             }
-            LOGGER.info("Cleaned up surface {} for entity {}", surfaceId, entityId);
+            LOGGER.info("Cleaned up surface {} for entity {}", entry.surfaceId, entityId);
         }
     }
 
@@ -175,13 +193,8 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
         // Get or create surface for this entity's route
         long surfaceId = getOrCreateSurface(state);
 
-        System.out.println("[FlutterDisplayRenderer] submitInner called! entityId=" + state.entityId +
-            ", surfaceId=" + surfaceId + ", route='" + state.route + "'" +
-            ", width=" + state.displayWidth + ", height=" + state.displayHeight);
-
         // Get the texture to render using the resolved surface ID
         Identifier texture = getFlutterTexture(surfaceId);
-        System.out.println("[FlutterDisplayRenderer] Using texture: " + texture);
 
         // Calculate quad dimensions (centered at origin)
         float halfW = state.displayWidth / 2.0f;

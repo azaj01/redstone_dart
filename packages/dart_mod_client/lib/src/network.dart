@@ -33,10 +33,18 @@ class ClientNetwork {
       _serverEventHandlers = [];
 
   /// Initialize the client network module.
-  static void init(String libraryPath) {
+  ///
+  /// If [libraryPath] is null, uses DynamicLibrary.process() to access
+  /// symbols from the already-loaded native library.
+  static void init([String? libraryPath]) {
     if (_initialized) return;
 
-    _lib = DynamicLibrary.open(libraryPath);
+    if (libraryPath != null) {
+      _lib = DynamicLibrary.open(libraryPath);
+    } else {
+      // Use the process's loaded symbols (native library already loaded by embedder)
+      _lib = DynamicLibrary.process();
+    }
     _initialized = true;
 
     // Bind functions
@@ -202,11 +210,14 @@ class ClientNetwork {
   /// ```
   static void sendToServer(ModPacket packet) {
     if (!_initialized) {
-      print('[ClientNetwork] Not initialized');
+      // ignore: avoid_print
+      print('[ClientNetwork] sendToServer: Not initialized!');
       return;
     }
 
     final bytes = packet.encodePayload();
+    // ignore: avoid_print
+    print('[ClientNetwork] sendToServer: typeId=0x${packet.typeId.toRadixString(16)}, bytes=${bytes.length}');
     final nativeBytes = calloc<Uint8>(bytes.length);
 
     try {
@@ -214,6 +225,8 @@ class ClientNetwork {
         nativeBytes[i] = bytes[i];
       }
       _clientSendPacketToServer(packet.typeId, nativeBytes, bytes.length);
+      // ignore: avoid_print
+      print('[ClientNetwork] sendToServer: Sent to native!');
     } finally {
       calloc.free(nativeBytes);
     }
@@ -245,6 +258,20 @@ class ClientNetwork {
     sendToServer(ClientEventPacket(
       eventName: eventName,
       payload: payload,
+    ));
+  }
+
+  /// Send a container data update to the server.
+  ///
+  /// Used when client-side UI changes a SyncedInt value that needs to be
+  /// synchronized back to the server (e.g., slider changes, numeric inputs).
+  static void sendContainerData(int menuId, int slotIndex, int value) {
+    // ignore: avoid_print
+    print('[ClientNetwork] sendContainerData: menuId=$menuId, slotIndex=$slotIndex, value=$value');
+    sendToServer(ContainerDataUpdatePacket(
+      menuId: menuId,
+      slotIndex: slotIndex,
+      value: value,
     ));
   }
 }

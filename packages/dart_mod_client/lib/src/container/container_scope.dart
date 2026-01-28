@@ -1,6 +1,7 @@
 /// ContainerScope - InheritedWidget for providing containers to descendant widgets.
 ///
 /// Provides automatic rebuild when container data changes via push-based events.
+/// Also handles bidirectional sync - local changes are sent back to the server.
 library;
 
 import 'dart:async';
@@ -10,6 +11,7 @@ import 'package:dart_mod_common/dart_mod_common.dart';
 
 import '../events/container_data_events.dart';
 import '../inventory/client_container_view.dart';
+import '../network.dart';
 
 /// Provides a container to descendant widgets with automatic rebuild on data changes.
 ///
@@ -129,6 +131,9 @@ class _ContainerScopeState<T extends ContainerDefinition>
   StreamSubscription<ContainerDataChangedEvent>? _subscription;
   int _updateCount = 0;
 
+  /// Track values we're updating locally to avoid sending back server echoes.
+  final Set<int> _locallyUpdatingSlots = {};
+
   /// The data source for pulling initial/cached values.
   static const _dataSource = ClientContainerView();
 
@@ -140,18 +145,53 @@ class _ContainerScopeState<T extends ContainerDefinition>
     // the Flutter widget tree is built.
     widget.container.initializeFromCache(_dataSource);
     _subscribeToDataChanges();
+    _subscribeToLocalChanges();
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
+    _unsubscribeFromLocalChanges();
     super.dispose();
   }
 
+  /// Subscribe to local value changes so we can send them to the server.
+  void _subscribeToLocalChanges() {
+    for (final syncedValue in widget.container.syncedValuesList) {
+      syncedValue.addListener(() => _onLocalValueChanged(syncedValue));
+    }
+  }
+
+  /// Unsubscribe from local value changes.
+  void _unsubscribeFromLocalChanges() {
+    for (final syncedValue in widget.container.syncedValuesList) {
+      syncedValue.removeListener(() => _onLocalValueChanged(syncedValue));
+    }
+  }
+
+  /// Called when a SyncedInt value is changed locally (e.g., by UI).
+  void _onLocalValueChanged(SyncedInt syncedValue) {
+    // Debug: Log the update
+    // ignore: avoid_print
+    print('[ContainerScope] Local value changed: slot=${syncedValue.dataSlotIndex}, value=${syncedValue.value}, menuId=${widget.menuId}');
+
+    // Send update to server
+    ClientNetwork.sendContainerData(
+      widget.menuId,
+      syncedValue.dataSlotIndex,
+      syncedValue.value,
+    );
+
+    // Trigger rebuild
+    if (mounted) {
+      setState(() {
+        _updateCount++;
+      });
+    }
+  }
+
   void _subscribeToDataChanges() {
-    print('[ContainerScope] _subscribeToDataChanges: subscribing for menuId=${widget.menuId}');
     _subscription = ContainerDataEvents.onDataChanged.listen((event) {
-      print('[ContainerScope] onDataChanged: event.menuId=${event.menuId}, slotIndex=${event.slotIndex}, value=${event.value}, our menuId=${widget.menuId}');
       // Only handle events for our menu
       if (event.menuId != widget.menuId) return;
 
@@ -159,7 +199,7 @@ class _ContainerScopeState<T extends ContainerDefinition>
       final syncedValues = widget.container.syncedValuesList;
       for (final syncedValue in syncedValues) {
         if (syncedValue.dataSlotIndex == event.slotIndex) {
-          print('[ContainerScope] Updating syncedValue at slot ${syncedValue.dataSlotIndex} from ${syncedValue.value} to ${event.value}');
+          // Use updateFromSync to avoid triggering local change handler
           syncedValue.updateFromSync(event.value);
           // Trigger rebuild
           if (mounted) {

@@ -860,4 +860,84 @@ JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_sendSurfaceKeyEvent(
 
 #endif // __APPLE__
 
+// ==========================================================================
+// Packet Send Callback (Dart -> Java -> Server)
+// ==========================================================================
+
+// Static references for callback
+static JavaVM* g_packet_jvm = nullptr;
+static jclass g_packet_class = nullptr;
+static jmethodID g_packet_method = nullptr;
+
+// Callback function that will be called by native when Dart sends a packet
+static void jni_send_packet_to_server_callback(int32_t packet_type, const uint8_t* data, int32_t data_length) {
+    std::cout << "[JNI] jni_send_packet_to_server_callback called: type=0x"
+              << std::hex << packet_type << std::dec << ", length=" << data_length << std::endl;
+
+    if (!g_packet_jvm || !g_packet_class || !g_packet_method) {
+        std::cerr << "[JNI] send_packet_to_server_callback: Not initialized" << std::endl;
+        return;
+    }
+
+    JNIEnv* env = nullptr;
+    bool attached = false;
+
+    jint result = g_packet_jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    if (result == JNI_EDETACHED) {
+        if (g_packet_jvm->AttachCurrentThread((void**)&env, nullptr) != 0) {
+            std::cerr << "[JNI] send_packet_to_server_callback: Failed to attach thread" << std::endl;
+            return;
+        }
+        attached = true;
+    } else if (result != JNI_OK) {
+        std::cerr << "[JNI] send_packet_to_server_callback: GetEnv failed" << std::endl;
+        return;
+    }
+
+    // Create byte array from data
+    jbyteArray jdata = env->NewByteArray(data_length);
+    if (jdata != nullptr) {
+        env->SetByteArrayRegion(jdata, 0, data_length, reinterpret_cast<const jbyte*>(data));
+
+        // Call Java method: onSendPacketToServer(int packetType, byte[] data)
+        env->CallStaticVoidMethod(g_packet_class, g_packet_method,
+                                   static_cast<jint>(packet_type), jdata);
+
+        env->DeleteLocalRef(jdata);
+    }
+
+    if (attached) {
+        g_packet_jvm->DetachCurrentThread();
+    }
+}
+
+/*
+ * Class:     com_redstone_DartBridgeClient
+ * Method:    registerClientSendPacketCallback
+ * Signature: ()V
+ *
+ * Register the callback for sending packets from Dart to Java/server.
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_registerClientSendPacketCallback(
+    JNIEnv* env, jclass cls) {
+
+    // Get JVM reference
+    env->GetJavaVM(&g_packet_jvm);
+
+    // Create global reference to the class
+    g_packet_class = (jclass)env->NewGlobalRef(cls);
+
+    // Get the method ID for onSendPacketToServer(int, byte[])
+    g_packet_method = env->GetStaticMethodID(cls, "onSendPacketToServer", "(I[B)V");
+    if (g_packet_method == nullptr) {
+        std::cerr << "[JNI] registerClientSendPacketCallback: Failed to find onSendPacketToServer method" << std::endl;
+        return;
+    }
+
+    // Register our callback with the native bridge
+    client_set_send_packet_to_server_callback(jni_send_packet_to_server_callback);
+
+    std::cout << "[JNI] Client send packet callback registered successfully" << std::endl;
+}
+
 } // extern "C"

@@ -38,6 +38,10 @@ abstract class PacketTypes {
   /// Custom event from client (client -> server).
   static const int clientEvent = 0x82;
 
+  /// Container data update from client (client -> server).
+  /// Used when client-side UI changes a SyncedInt value.
+  static const int containerDataUpdate = 0x83;
+
   /// Check if a packet type is server-to-client.
   static bool isS2C(int typeId) => typeId >= 0x00 && typeId < 0x80;
 

@@ -173,6 +173,24 @@ public class DartBlockEntityMenu extends AbstractContainerMenu implements DartMe
     }
 
     /**
+     * Set a specific data value by index (server-side).
+     *
+     * <p>This updates the underlying ContainerData, which for block entities
+     * will call back into Dart via DartBridge.setBlockEntityDataSlot().
+     *
+     * <p>Called from C2SPacketHandler when receiving ContainerDataUpdate packets
+     * from the client.
+     *
+     * @param index The data slot index
+     * @param value The new value
+     */
+    public void setDataValue(int index, int value) {
+        if (index >= 0 && index < this.data.getCount()) {
+            this.data.set(index, value);
+        }
+    }
+
+    /**
      * Get the number of data slots in this container.
      */
     @Override

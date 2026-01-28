@@ -2188,6 +2188,17 @@ public class DartBridge {
     }
 
     /**
+     * Get the route of a Flutter display entity.
+     */
+    public static String getFlutterDisplayRoute(int entityId) {
+        Entity entity = getEntityById(entityId);
+        if (entity instanceof com.redstone.entity.FlutterDisplayEntity display) {
+            return display.getRoute();
+        }
+        return "";
+    }
+
+    /**
      * Set the rotation of an entity (yaw and pitch).
      */
     public static void setEntityRotation(int entityId, float yaw, float pitch) {

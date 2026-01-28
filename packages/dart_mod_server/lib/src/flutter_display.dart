@@ -293,6 +293,49 @@ class FlutterDisplay {
   /// Convert this to a generic Entity for use with the entity API.
   Entity toEntity() => Entity(entityId);
 
+  /// Get the route from the entity (queries the actual entity, not cached).
+  String? get currentRoute {
+    final route = GenericJniBridge.callStaticStringMethod(
+      _dartBridge,
+      'getFlutterDisplayRoute',
+      '(I)Ljava/lang/String;',
+      [entityId],
+    );
+    return (route == null || route.isEmpty) ? null : route;
+  }
+
+  /// Create a FlutterDisplay from an existing entity ID.
+  ///
+  /// This allows you to get a FlutterDisplay reference from an entity
+  /// that was found via Entities.getEntitiesByType().
+  static FlutterDisplay? fromEntityId(int entityId) {
+    // Check if it's actually a FlutterDisplay by trying to get its route
+    final route = GenericJniBridge.callStaticStringMethod(
+      _dartBridge,
+      'getFlutterDisplayRoute',
+      '(I)Ljava/lang/String;',
+      [entityId],
+    );
+    // If we get a non-null result (even empty string), it's a FlutterDisplay
+    if (route != null) {
+      return FlutterDisplay._internal(entityId, 0, route.isEmpty ? null : route);
+    }
+    return null;
+  }
+
+  /// Get the route of a FlutterDisplay entity by its ID.
+  ///
+  /// Returns null if the entity doesn't exist or isn't a FlutterDisplay.
+  static String? getRouteForEntity(int entityId) {
+    final route = GenericJniBridge.callStaticStringMethod(
+      _dartBridge,
+      'getFlutterDisplayRoute',
+      '(I)Ljava/lang/String;',
+      [entityId],
+    );
+    return (route == null || route.isEmpty) ? null : route;
+  }
+
   @override
   String toString() {
     final routeInfo = route != null ? ", route='$route'" : '';

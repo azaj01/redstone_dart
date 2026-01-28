@@ -131,6 +131,49 @@ class RequestDataPacket extends ModPacket {
   }
 }
 
+/// Container data update packet.
+///
+/// Sent when client-side UI changes a SyncedInt value that needs to be
+/// synchronized back to the server.
+class ContainerDataUpdatePacket extends ModPacket {
+  /// The container/menu ID.
+  final int menuId;
+
+  /// The data slot index being updated.
+  final int slotIndex;
+
+  /// The new value.
+  final int value;
+
+  ContainerDataUpdatePacket({
+    required this.menuId,
+    required this.slotIndex,
+    required this.value,
+  });
+
+  @override
+  int get typeId => PacketTypes.containerDataUpdate;
+
+  @override
+  Uint8List encodePayload() {
+    return ModPacket.encodeJson({
+      'menuId': menuId,
+      'slotIndex': slotIndex,
+      'value': value,
+    });
+  }
+
+  /// Decode from payload bytes.
+  static ContainerDataUpdatePacket decode(Uint8List payload) {
+    final json = ModPacket.decodeJson(payload);
+    return ContainerDataUpdatePacket(
+      menuId: json['menuId'] as int,
+      slotIndex: json['slotIndex'] as int,
+      value: json['value'] as int,
+    );
+  }
+}
+
 /// Custom client event packet.
 class ClientEventPacket extends ModPacket {
   /// The event name.
@@ -170,4 +213,5 @@ void registerC2SPackets() {
   PacketRegistry.register(PacketTypes.uiAction, UIActionPacket.decode);
   PacketRegistry.register(PacketTypes.requestData, RequestDataPacket.decode);
   PacketRegistry.register(PacketTypes.clientEvent, ClientEventPacket.decode);
+  PacketRegistry.register(PacketTypes.containerDataUpdate, ContainerDataUpdatePacket.decode);
 }
