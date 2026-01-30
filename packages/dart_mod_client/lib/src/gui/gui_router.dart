@@ -155,7 +155,13 @@ class _GuiRouterState extends State<GuiRouter> {
   }
 
   void _onContainerOpen(ContainerOpenEvent event) {
+    final openStartTime = DateTime.now().microsecondsSinceEpoch;
+    print('[PERF][Dart] _onContainerOpen START at ${DateTime.now()}');
     print('[GuiRouter] _onContainerOpen: menuId=${event.menuId}, slotCount=${event.slotCount}, containerId="${event.containerId}", title="${event.title}"');
+
+    // Check if we're transitioning from prewarm to real open
+    final wasPrewarming = _isPrewarming;
+    _isPrewarming = false;
 
     // Use containerId from event (passed from Java)
     final containerId = event.containerId;
@@ -176,16 +182,28 @@ class _GuiRouterState extends State<GuiRouter> {
       columns: columns,
     );
 
-    // Use prewarmed route if it matches, otherwise find the route
+    final infoCreatedTime = DateTime.now().microsecondsSinceEpoch;
+    print('[PERF][Dart] ContainerInfo created in ${(infoCreatedTime - openStartTime) / 1000.0}ms');
+
+    // Use prewarmed route if available and matches, otherwise find the route
     GuiRoute? route;
-    if (_prewarmedRoute != null && _prewarmedContainerId == containerId) {
+    final routeLookupStart = DateTime.now().microsecondsSinceEpoch;
+
+    // Check if prewarmed route matches (by containerId or title)
+    final prewarmedMatches = _prewarmedRoute != null &&
+        (_prewarmedContainerId == containerId ||
+         _prewarmedContainerId == event.title);
+
+    if (prewarmedMatches) {
       route = _prewarmedRoute;
-      print('[GuiRouter] Using pre-warmed route for $containerId');
+      print('[PERF][Dart] Using pre-warmed route for $containerId (wasPrewarming=$wasPrewarming)');
     } else {
       // Find matching route (try containerId first, then title)
       route = _findRoute(containerId, event.title);
       print('[GuiRouter] Found route: $route');
     }
+    final routeLookupEnd = DateTime.now().microsecondsSinceEpoch;
+    print('[PERF][Dart] Route lookup took ${(routeLookupEnd - routeLookupStart) / 1000.0}ms');
 
     // Clear prewarm state
     _prewarmedRoute = null;
@@ -194,13 +212,34 @@ class _GuiRouterState extends State<GuiRouter> {
     // Send pre-registered or cached slots if available
     final effectiveSlots = route?.effectiveSlots;
     if (effectiveSlots != null && effectiveSlots.isNotEmpty) {
+      final slotSendStart = DateTime.now().microsecondsSinceEpoch;
       _sendPreRegisteredSlots(event.menuId, effectiveSlots);
+      final slotSendEnd = DateTime.now().microsecondsSinceEpoch;
+      print('[PERF][Dart] _sendPreRegisteredSlots took ${(slotSendEnd - slotSendStart) / 1000.0}ms for ${effectiveSlots.length} slots');
     }
 
-    setState(() {
-      _currentContainer = info;
-      _currentRoute = route;
-    });
+    // If we were prewarming with the same route, just update the menuId
+    // This avoids a full widget rebuild since the UI is already rendered
+    if (wasPrewarming && _currentRoute == route) {
+      print('[PERF][Dart] Prewarm->Open transition: updating menuId only (no rebuild needed)');
+      setState(() {
+        _currentContainer = info;
+        // _currentRoute stays the same - no widget rebuild needed
+      });
+    } else {
+      final setStateStart = DateTime.now().microsecondsSinceEpoch;
+      setState(() {
+        _currentContainer = info;
+        _currentRoute = route;
+      });
+      final setStateEnd = DateTime.now().microsecondsSinceEpoch;
+      print('[PERF][Dart] setState() took ${(setStateEnd - setStateStart) / 1000.0}ms');
+    }
+
+    final totalTime = (DateTime.now().microsecondsSinceEpoch - openStartTime) / 1000.0;
+    print('[PERF][Dart] ========================================');
+    print('[PERF][Dart] _onContainerOpen TOTAL: ${totalTime}ms (wasPrewarming=$wasPrewarming)');
+    print('[PERF][Dart] ========================================');
   }
 
   void _onContainerClose(int menuId) {
@@ -212,32 +251,69 @@ class _GuiRouterState extends State<GuiRouter> {
     }
   }
 
+  /// Whether we're currently in prewarm mode (showing container UI before actual open).
+  bool _isPrewarming = false;
+
   /// Handle container prewarm event (player looking at container block).
   ///
-  /// This prepares the route matching for faster screen opening.
-  /// The actual widget is built when the container opens, but we can
-  /// cache the route lookup result.
+  /// This ACTUALLY RENDERS the container UI so the frame is ready when the
+  /// container opens. Without this, the user sees a flash of the background
+  /// widget before the container UI appears.
   void _onContainerPrewarm(ContainerPrewarmEvent event) {
-    print('[GuiRouter] _onContainerPrewarm: containerId="${event.containerId}"');
+    final prewarmStart = DateTime.now().microsecondsSinceEpoch;
+    print('[PERF][Dart] _onContainerPrewarm START: containerId="${event.containerId}"');
 
     if (event.containerId.isEmpty) {
-      // Clear prewarm state
-      _prewarmedRoute = null;
-      _prewarmedContainerId = null;
+      // Clear prewarm state - but only if we're not already showing a container
+      if (_currentContainer == null && _isPrewarming) {
+        _isPrewarming = false;
+        setState(() {
+          _prewarmedRoute = null;
+          _prewarmedContainerId = null;
+        });
+      }
       return;
     }
 
     // Find matching route for this container
-    final route = _findRoute(event.containerId, '');
+    // Note: Java sends the display name as containerId, but routes may be registered
+    // with either containerId or title. Try matching with the value as both.
+    final routeLookupStart = DateTime.now().microsecondsSinceEpoch;
+    // Try as containerId first, then as title (the value from Java is the display name)
+    var route = _findRoute(event.containerId, '');
+    route ??= _findRoute('', event.containerId); // Try as title if not found by containerId
+    final routeLookupEnd = DateTime.now().microsecondsSinceEpoch;
+    print('[PERF][Dart] Prewarm route lookup took ${(routeLookupEnd - routeLookupStart) / 1000.0}ms');
 
     if (route != null) {
       _prewarmedRoute = route;
       _prewarmedContainerId = event.containerId;
-      print('[GuiRouter] Pre-warmed route for ${event.containerId}');
+
+      // ACTUALLY RENDER the container UI during prewarm!
+      // This ensures the correct frame (container UI, not background) is ready.
+      // We use a fake menuId (-1) to indicate prewarm mode.
+      _isPrewarming = true;
+      final prewarmInfo = ContainerInfo(
+        menuId: -1, // Prewarm mode - not a real container yet
+        containerId: event.containerId,
+        title: event.containerId, // Use containerId as title for matching
+        rows: 3, // Default guess - will be corrected on actual open
+        columns: 9,
+      );
+
+      setState(() {
+        _currentContainer = prewarmInfo;
+        _currentRoute = route;
+      });
+
+      final prewarmEnd = DateTime.now().microsecondsSinceEpoch;
+      print('[PERF][Dart] Prewarm COMPLETE (UI rendered) for ${event.containerId} in ${(prewarmEnd - prewarmStart) / 1000.0}ms');
     } else {
       // No matching route, clear prewarm
       _prewarmedRoute = null;
       _prewarmedContainerId = null;
+      _isPrewarming = false;
+      print('[PERF][Dart] No route found for prewarm: ${event.containerId}');
     }
   }
 

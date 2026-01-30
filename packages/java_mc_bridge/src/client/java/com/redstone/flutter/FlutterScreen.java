@@ -1066,8 +1066,7 @@ public class FlutterScreen extends Screen {
         // instead of only 20 TPS via the client tick event.
         DartBridgeClient.safeProcessClientTasks();
 
-        // Call super.render() first - this renders the Minecraft background
-        // (dark gradient overlay because isInGameUi() returns true)
+        // Render the Minecraft background (dark gradient overlay)
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         if (!flutterInitialized) {
@@ -1088,7 +1087,9 @@ public class FlutterScreen extends Screen {
             renderFlutterTextureOpenGL(guiGraphics);
         } else {
             // Software path: copy pixels to DynamicTexture
-            if (DartBridgeClient.hasNewFrame()) {
+            // Note: hasNewFrame() is consumable (clears flag after reading), so also
+            // check if dynamicTexture is null to handle first frame
+            if (DartBridgeClient.hasNewFrame() || dynamicTexture == null) {
                 updateTexture();
             }
 
@@ -1383,7 +1384,10 @@ public class FlutterScreen extends Screen {
      */
     private void renderSoftwareFallback(GuiGraphics guiGraphics) {
         // Check if we have a new frame from the software renderer
-        if (DartBridgeClient.hasNewFrame()) {
+        // Note: hasNewFrame() is consumable (clears flag after reading), so also
+        // check if dynamicTexture is null - we need to create it on first frame
+        // even if hasNewFrame() was already consumed by FlutterContainerScreen.init()
+        if (DartBridgeClient.hasNewFrame() || dynamicTexture == null) {
             updateTexture();
         }
 

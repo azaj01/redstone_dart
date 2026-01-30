@@ -61,7 +61,13 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
 
     @Override
     protected void init() {
+        long initStartTime = System.nanoTime();
+        long checkpointTime = initStartTime;
+
         super.init();
+        long superInitTime = System.nanoTime();
+        LOGGER.info("[PERF] FlutterContainerScreen.super.init() took {}ms", (superInitTime - checkpointTime) / 1_000_000.0);
+        checkpointTime = superInitTime;
 
         // Register for slot position updates
         DartBridgeClient.setSlotPositionsHandler((menuId, data) -> {
@@ -91,41 +97,68 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
             containerId = DartBridge.getContainerIdByTitle(titleStr);
         }
 
+        long idLookupTime = System.nanoTime();
+        LOGGER.info("[PERF] Container ID lookup took {}ms", (idLookupTime - checkpointTime) / 1_000_000.0);
+        checkpointTime = idLookupTime;
+
         LOGGER.info("[FlutterContainerScreen] Initialized with menu containerId={}, typeId={}, title={}",
             menu.containerId, containerId, titleStr);
 
         // Check if we have a pre-warmed frame ready (player was looking at this container)
         boolean prewarmed = ContainerPrewarmManager.isPrewarmed(containerId) || ContainerPrewarmManager.isAnyPrewarmed();
+        long prewarmCheckTime = System.nanoTime();
+        LOGGER.info("[PERF] Prewarm check took {}ms, prewarmed={}", (prewarmCheckTime - checkpointTime) / 1_000_000.0, prewarmed);
+        checkpointTime = prewarmCheckTime;
+
         if (prewarmed) {
             LOGGER.info("[FlutterContainerScreen] Using pre-warmed frame for container '{}'", containerId);
             ContainerPrewarmManager.clearPrewarm();
         }
 
         // Notify Dart that container is opening
+        long dispatchStartTime = System.nanoTime();
         DartBridgeClient.dispatchContainerScreenOpen(menu.containerId, menu.slots.size(), containerId, titleStr);
+        long dispatchEndTime = System.nanoTime();
+        LOGGER.info("[PERF] dispatchContainerScreenOpen() took {}ms", (dispatchEndTime - dispatchStartTime) / 1_000_000.0);
+        checkpointTime = dispatchEndTime;
 
-        // If not pre-warmed, schedule a frame and wait synchronously for Flutter to render first frame
-        // This avoids the "Waiting for Flutter frame..." flash when opening containers
-        if (!prewarmed) {
-            DartBridgeClient.scheduleFrame();
+        // ALWAYS wait for a valid Flutter frame before returning from init().
+        // This guarantees the first render() call has content to display.
+        // Prewarm already rendered at the same screen size, so we just need to
+        // wait for the frame to be available (no dimension check needed).
+        long frameWaitStartTime = System.nanoTime();
+        DartBridgeClient.scheduleFrame();
 
-            int maxAttempts = 100; // ~100ms max wait
-            int attempts = 0;
-            while (!DartBridgeClient.hasNewFrame() && attempts < maxAttempts) {
-                DartBridgeClient.safeProcessClientTasks();
-                try {
-                    Thread.sleep(1); // 1ms per iteration
-                } catch (InterruptedException e) {
-                    break;
-                }
-                attempts++;
+        int maxAttempts = prewarmed ? 10 : 100; // Very short wait if prewarmed (frame is already ready)
+        int attempts = 0;
+        while (attempts < maxAttempts) {
+            DartBridgeClient.safeProcessClientTasks();
+
+            // Check if Flutter has a valid frame ready
+            if (DartBridgeClient.hasNewFrame() && DartBridgeClient.getFlutterTextureId() > 0) {
+                LOGGER.info("[PERF] Frame ready after {}ms ({} attempts)",
+                    (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, attempts);
+                break;
             }
 
-            if (attempts > 0) {
-                LOGGER.info("[FlutterContainerScreen] Waited {}ms for first frame (hasFrame={})",
-                    attempts, DartBridgeClient.hasNewFrame());
+            try {
+                Thread.sleep(1); // 1ms per iteration
+            } catch (InterruptedException e) {
+                break;
             }
+            attempts++;
         }
+
+        long frameWaitEndTime = System.nanoTime();
+        LOGGER.info("[PERF] Frame wait loop: {}ms ({} attempts, prewarmed={})",
+            (frameWaitEndTime - frameWaitStartTime) / 1_000_000.0, attempts, prewarmed);
+        checkpointTime = frameWaitEndTime;
+
+        long initEndTime = System.nanoTime();
+        LOGGER.info("[PERF] ========================================");
+        LOGGER.info("[PERF] FlutterContainerScreen.init() TOTAL: {}ms (prewarmed={})",
+            (initEndTime - initStartTime) / 1_000_000.0, prewarmed);
+        LOGGER.info("[PERF] ========================================");
     }
 
     private void updateSlotPositions(int menuId, int[] data) {
@@ -152,8 +185,28 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
         LOGGER.info("[FlutterContainerScreen] Updated {} slot positions for menu {}", slotPositions.size(), menuId);
     }
 
+    // Track first frame timing
+    private boolean firstFrameRendered = false;
+    private long screenOpenTimeNanos = 0;
+
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (!firstFrameRendered) {
+            if (screenOpenTimeNanos == 0) {
+                screenOpenTimeNanos = System.nanoTime();
+            }
+            // Check if Flutter has rendered content
+            if (DartBridgeClient.hasNewFrame() || !slotPositions.isEmpty()) {
+                long firstFrameTime = System.nanoTime();
+                LOGGER.info("[PERF] ========================================");
+                LOGGER.info("[PERF] FIRST FRAME RENDERED: {}ms since render() started",
+                    (firstFrameTime - screenOpenTimeNanos) / 1_000_000.0);
+                LOGGER.info("[PERF] Slot positions available: {}", slotPositions.size());
+                LOGGER.info("[PERF] ========================================");
+                firstFrameRendered = true;
+            }
+        }
+
         // 0. Update cached progress values for Flutter to read (thread-safe)
         DartBridgeClient.updateCachedContainerProgress();
 

@@ -38,6 +38,9 @@ public class ContainerPrewarmManager {
     /** Minimum time to wait before checking for new frame (avoid excessive checks). */
     private static int ticksSincePrewarm = 0;
 
+    /** Timestamp when prewarm was started (for timing). */
+    private static long prewarmStartTimeNanos = 0;
+
     /**
      * Called every client tick to check what the player is looking at.
      * If looking at a container block, trigger pre-warm.
@@ -79,7 +82,9 @@ public class ContainerPrewarmManager {
             if (!prewarmedFrameReady && ticksSincePrewarm >= 2) {
                 if (DartBridgeClient.hasNewFrame()) {
                     prewarmedFrameReady = true;
-                    LOGGER.info("[ContainerPrewarm] Frame ready for container '{}' at {}", prewarmedContainerId, pos);
+                    long prewarmDurationMs = (System.nanoTime() - prewarmStartTimeNanos) / 1_000_000;
+                    LOGGER.info("[PERF] ContainerPrewarm frame ready for '{}' at {} - took {}ms ({} ticks)",
+                        prewarmedContainerId, pos, prewarmDurationMs, ticksSincePrewarm);
                 }
             }
             return;
@@ -92,12 +97,13 @@ public class ContainerPrewarmManager {
             lastLookedAtContainer = pos;
             prewarmedFrameReady = false;
             ticksSincePrewarm = 0;
+            prewarmStartTimeNanos = System.nanoTime();
 
             // Get container display name - we'll use this as the ID for matching
             // (FlutterContainerScreen uses DartBridge.getContainerIdByTitle as fallback)
             prewarmedContainerId = dartContainer.getDisplayName().getString();
 
-            LOGGER.info("[ContainerPrewarm] Pre-warming container with title '{}' at {}", prewarmedContainerId, pos);
+            LOGGER.info("[PERF] ContainerPrewarm STARTED for '{}' at {}", prewarmedContainerId, pos);
 
             // Get screen dimensions
             int width = mc.getWindow().getGuiScaledWidth();
@@ -105,7 +111,10 @@ public class ContainerPrewarmManager {
             int guiScale = (int) mc.getWindow().getGuiScale();
 
             // Trigger Flutter to pre-render this container's UI
+            long prewarmCallStart = System.nanoTime();
             DartBridgeClient.prewarmContainerScreen(prewarmedContainerId, width, height, guiScale);
+            long prewarmCallEnd = System.nanoTime();
+            LOGGER.info("[PERF] prewarmContainerScreen() call took {}ms", (prewarmCallEnd - prewarmCallStart) / 1_000_000.0);
         } else {
             // Not a container - clear state
             if (lastLookedAtContainer != null) {
