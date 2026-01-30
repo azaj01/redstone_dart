@@ -941,6 +941,11 @@ void dart_client_send_window_metrics(int32_t width, int32_t height, double pixel
 void dart_client_send_pointer_event(int32_t phase, double x, double y, int64_t buttons) {
     if (!g_client_initialized || g_client_engine == nullptr) return;
 
+    // Debug: log pointer events (phase 3 = MOVE)
+    if (phase == 2 || phase == 3) { // DOWN or MOVE
+        std::cout << "[PointerEvent] phase=" << phase << " x=" << x << " y=" << y << " buttons=" << buttons << std::endl;
+    }
+
     // Flutter expects coordinates in physical pixels (framebuffer pixels)
     // Java sends logical pixels (GUI coordinates), so scale by pixel_ratio
     FlutterPointerEvent event = {};
@@ -950,6 +955,7 @@ void dart_client_send_pointer_event(int32_t phase, double x, double y, int64_t b
     event.x = x * g_client_pixel_ratio;
     event.y = y * g_client_pixel_ratio;
     event.buttons = buttons;
+    event.device = 0;  // Use consistent device ID for all mouse events
     event.device_kind = kFlutterPointerDeviceKindMouse;
 
     FlutterEngineSendPointerEvent(g_client_engine, &event, 1);
@@ -1197,8 +1203,13 @@ void client_dispatch_server_packet(int32_t packet_type, const uint8_t* data, int
 }
 
 void client_send_packet_to_server(int32_t packet_type, const uint8_t* data, int32_t data_length) {
+    std::cout << "[Native] client_send_packet_to_server: type=0x" << std::hex << packet_type
+              << std::dec << ", length=" << data_length
+              << ", callback=" << (g_client_send_packet_callback ? "SET" : "NULL") << std::endl;
     if (g_client_send_packet_callback) {
         g_client_send_packet_callback(packet_type, data, data_length);
+    } else {
+        std::cerr << "[Native] client_send_packet_to_server: No callback registered!" << std::endl;
     }
 }
 
@@ -1619,14 +1630,9 @@ uint32_t dart_client_get_iosurface_id() {
 // Frame Pixel Access (for software fallback display path)
 // ==========================================================================
 
-static int g_frame_read_count = 0;
-
 void* dart_client_get_frame_pixels() {
 #if METAL_SUPPORTED
     if (g_use_hardware_renderer) {
-        g_frame_read_count++;
-        std::cout << "[getFramePixels] Read #" << g_frame_read_count << std::endl;
-
         // Read back from IOSurface for the software display fallback
         void* surface = nullptr;
         int32_t width = 0;
@@ -1653,20 +1659,6 @@ void* dart_client_get_frame_pixels() {
         void* baseAddress = IOSurfaceGetBaseAddress(ioSurface);
         size_t bytesPerRow = IOSurfaceGetBytesPerRow(ioSurface);
         size_t tightBytesPerRow = (size_t)width * 4; // 4 bytes per pixel (BGRA)
-
-        std::cout << "[getFramePixels] IOSurface baseAddress=" << baseAddress
-                  << " bytesPerRow=" << bytesPerRow
-                  << " width=" << width << " height=" << height << std::endl;
-
-        // Debug: check first 16 bytes of the surface
-        if (baseAddress) {
-            uint8_t* bytes = (uint8_t*)baseAddress;
-            std::cout << "[getFramePixels] First 16 bytes: ";
-            for (int i = 0; i < 16; i++) {
-                printf("%02x ", bytes[i]);
-            }
-            std::cout << std::endl;
-        }
 
         // Ensure our buffer is big enough for tightly-packed pixels
         // Java expects width * height * 4 bytes with no padding

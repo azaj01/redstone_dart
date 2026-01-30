@@ -344,6 +344,8 @@ public class DartModClientLoader implements ClientModInitializer {
             }
             // Check if player is looking at a container and pre-warm if so
             ContainerPrewarmManager.tick();
+            // Process pointer interaction state (auto-release, etc.)
+            com.redstone.input.PointerInteractionHandler.tick();
             // Also call the test synchronization tick
             DartBridgeClient.onClientTick();
         });
@@ -721,6 +723,41 @@ public class DartModClientLoader implements ClientModInitializer {
             LOGGER.error("[DartModClientLoader] Flutter GUI screens will not be available");
         } else {
             LOGGER.info("[DartModClientLoader] Flutter client runtime initialized successfully!");
+
+            // Register packet handlers AFTER Flutter runtime is initialized
+            // This connects Dart's packet sending to Java's networking layer
+            registerClientPacketHandlers();
         }
+    }
+
+    /**
+     * Register client-side packet handlers.
+     *
+     * This connects:
+     * 1. Server-to-Client (S2C): ClientPacketHandler receives packets and forwards to Flutter
+     * 2. Client-to-Server (C2S): DartBridgeClient.onSendPacketToServer sends packets to server
+     *
+     * Note: ModPackets.register() is called in DartModLoader.onInitialize() which runs
+     * before client init. We call it here too (it's idempotent) to ensure packet types
+     * are registered before handlers.
+     */
+    private void registerClientPacketHandlers() {
+        LOGGER.info("[DartModClientLoader] Registering client packet handlers...");
+
+        // Ensure packet types are registered (should already be done in DartModLoader,
+        // but this is idempotent and ensures correct ordering)
+        com.redstone.network.ModPackets.register();
+
+        // Register S2C handler (receives packets from server, forwards to Flutter)
+        com.redstone.network.ClientPacketHandler.registerHandlers();
+
+        // Register C2S handler (receives packets from Flutter, sends to server)
+        DartBridgeClient.setPacketSendHandler((packetType, data) -> {
+            LOGGER.info("[DartModClientLoader] Sending C2S packet to server: type=0x{}, bytes={}",
+                Integer.toHexString(packetType), data.length);
+            com.redstone.network.ClientPacketHandler.sendToServer(packetType, data);
+        });
+
+        LOGGER.info("[DartModClientLoader] Client packet handlers registered!");
     }
 }

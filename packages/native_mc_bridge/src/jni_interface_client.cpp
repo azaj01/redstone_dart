@@ -940,4 +940,44 @@ JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_registerClientSendPack
     std::cout << "[JNI] Client send packet callback registered successfully" << std::endl;
 }
 
+// ==========================================================================
+// Server-to-Client Packet Dispatch
+// ==========================================================================
+
+/*
+ * Class:     com_redstone_DartBridgeClient
+ * Method:    dispatchServerPacketNative
+ * Signature: (I[B)V
+ *
+ * Dispatch a packet received from the server to the Dart client runtime.
+ * This is called by the networking layer when an S2C packet is received.
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_dispatchServerPacketNative(
+    JNIEnv* env, jclass /* cls */, jint packetType, jbyteArray data) {
+
+    if (data == nullptr) {
+        std::cerr << "[JNI] dispatchServerPacketNative: data is null" << std::endl;
+        return;
+    }
+
+    jsize dataLength = env->GetArrayLength(data);
+    jbyte* dataBytes = env->GetByteArrayElements(data, nullptr);
+    if (dataBytes == nullptr) {
+        std::cerr << "[JNI] dispatchServerPacketNative: Failed to get byte array elements" << std::endl;
+        return;
+    }
+
+    std::cout << "[JNI] dispatchServerPacketNative: packetType=0x" << std::hex << packetType
+              << std::dec << ", length=" << dataLength << std::endl;
+
+    // Dispatch to native client runtime -> Dart
+    client_dispatch_server_packet(
+        static_cast<int32_t>(packetType),
+        reinterpret_cast<const uint8_t*>(dataBytes),
+        static_cast<int32_t>(dataLength)
+    );
+
+    env->ReleaseByteArrayElements(data, dataBytes, JNI_ABORT);
+}
+
 } // extern "C"

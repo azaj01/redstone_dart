@@ -1510,4 +1510,37 @@ public class DartBridgeClient {
         });
     }
 
+    // ==========================================================================
+    // Pointer Interaction Methods (for FlutterDisplay entity interaction)
+    // ==========================================================================
+
+    /**
+     * Called from Dart when the server sends a pointer_lock event.
+     * This notifies the Java-side PointerInteractionHandler to capture the mouse.
+     *
+     * @param entityId The entity ID to lock onto
+     * @param route The Flutter route for the display
+     * @param width The display width in world units
+     * @param height The display height in world units
+     */
+    public static void onPointerLock(int entityId, String route, float width, float height) {
+        LOGGER.info("onPointerLock: entityId={}, route='{}', size={}x{}", entityId, route, width, height);
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            com.redstone.input.PointerInteractionHandler.onLockAcquired(entityId, route, width, height);
+        });
+    }
+
+    /**
+     * Called from Dart when the server sends a pointer_unlock event.
+     * This notifies the Java-side PointerInteractionHandler to release the mouse.
+     */
+    public static void onPointerUnlock() {
+        LOGGER.info("onPointerUnlock");
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            com.redstone.input.PointerInteractionHandler.onLockReleased();
+        });
+    }
+
 }

@@ -344,6 +344,10 @@ public class DartModLoader implements ModInitializer {
         // Initialize Flutter display entity types
         FlutterDisplayEntityTypes.initialize();
 
+        // Register network packet types (must be done early, before any handlers register)
+        com.redstone.network.ModPackets.register();
+        com.redstone.network.ModPackets.registerServerHandlers();
+
         // Note: BlockEntityTypes are now registered per-block in ProxyRegistry.registerBlockWithHandlerId()
         // when blocks with block entities are registered. This ensures each BlockEntityType is
         // associated with its specific block, which Minecraft requires for validation.

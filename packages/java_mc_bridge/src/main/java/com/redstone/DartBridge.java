@@ -912,6 +912,34 @@ public class DartBridge {
         }
     }
 
+    /**
+     * Send an S2C packet to a player.
+     * Called from Dart to send server events and other packets to clients.
+     *
+     * @param playerId The entity ID of the player to send to
+     * @param packetType The packet type ID
+     * @param jsonPayload The packet payload as JSON string
+     */
+    public static void sendS2CPacket(int playerId, int packetType, String jsonPayload) {
+        if (serverInstance == null) {
+            LOGGER.warn("Cannot send S2C packet: no server instance");
+            return;
+        }
+
+        // Convert JSON string to bytes
+        byte[] data = jsonPayload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        // Find player by entity ID
+        for (net.minecraft.server.level.ServerPlayer player : serverInstance.getPlayerList().getPlayers()) {
+            if (player.getId() == playerId) {
+                com.redstone.network.S2CPacketHandler.sendToPlayer(player, packetType, data);
+                LOGGER.info("Sent S2C packet type=0x{} ({} bytes) to player {}", Integer.toHexString(packetType), data.length, playerId);
+                return;
+            }
+        }
+        LOGGER.warn("Cannot send S2C packet: player {} not found", playerId);
+    }
+
     // ==========================================================================
     // Command Execution APIs
     // ==========================================================================

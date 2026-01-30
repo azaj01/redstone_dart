@@ -11,6 +11,8 @@
     "KeyboardAccessor",
     "KeyMappingAccessor",
     "MouseAccessor",
+    "PointerKeyboardMixin",
+    "PointerMouseMixin",
     "WindowMixin"
   ],
   "injectors": {

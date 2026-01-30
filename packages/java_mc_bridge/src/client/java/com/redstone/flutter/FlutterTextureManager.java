@@ -399,12 +399,7 @@ public class FlutterTextureManager implements AutoCloseable {
                     int b2 = pixels.get() & 0xFF;
                     int b3 = pixels.get() & 0xFF;
 
-                    // Debug first 10 pixels
-                    if (i < 10) {
-                        LOGGER.info("Pixel {} at ({},{}): bytes=[{}, {}, {}, {}]", i, x, y, b0, b1, b2, b3);
-                    }
-
-                    // Try BGRA format (common on macOS Metal):
+                    // BGRA format (common on macOS Metal):
                     // b0=B, b1=G, b2=R, b3=A
                     int b = b0;
                     int g = b1;
@@ -412,16 +407,13 @@ public class FlutterTextureManager implements AutoCloseable {
                     int a = b3;
 
                     // Pack as ABGR (Minecraft's internal format)
-                    // Use actual alpha value for transparency support
                     int color = (a << 24) | (b << 16) | (g << 8) | r;
                     image.setPixel(x, y, color);
                     copied++;
                 }
 
-                LOGGER.info("Copied {} pixels to texture, uploading...", copied);
                 texture.upload();
                 hasValidData = true;
-                LOGGER.info("Texture upload complete for surface {}", surfaceId);
             } else {
                 LOGGER.warn("NativeImage is null for texture!");
             }

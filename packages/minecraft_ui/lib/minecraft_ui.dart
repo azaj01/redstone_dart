@@ -2,7 +2,7 @@
 ///
 /// This package provides widgets and styling that match Minecraft's UI exactly,
 /// including buttons, inventory slots, text fields, and more.
-library minecraft_ui;
+library;
 
 // Theme and colors
 export 'src/theme/mc_colors.dart';
@@ -16,6 +16,8 @@ export 'src/widgets/mc_text.dart';
 export 'src/widgets/mc_text_field.dart';
 export 'src/widgets/mc_checkbox.dart';
 export 'src/widgets/mc_slider.dart';
+export 'src/widgets/mc_int_slider.dart';
+export 'src/widgets/mc_toggle_button.dart';
 export 'src/widgets/mc_tooltip.dart';
 export 'src/widgets/mc_progress_bar.dart';
 export 'src/widgets/mc_scrollbar.dart';

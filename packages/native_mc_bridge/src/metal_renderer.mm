@@ -279,9 +279,6 @@ static bool CreateOrResizeTexture(int32_t width, int32_t height) {
 // ==========================================================================
 
 extern "C" FlutterMetalTexture metal_renderer_get_next_drawable(void* user_data, const FlutterFrameInfo* frame_info) {
-    std::cout << "[Metal] get_next_drawable called, frame size: "
-              << (frame_info ? frame_info->size.width : 0) << "x"
-              << (frame_info ? frame_info->size.height : 0) << std::endl;
 
     // Return empty texture if in error state
     if (g_metal_error_state.load()) {
@@ -333,15 +330,10 @@ extern "C" FlutterMetalTexture metal_renderer_get_next_drawable(void* user_data,
     result.user_data = nullptr;
     result.destruction_callback = nullptr;
 
-    // Debug: log the texture pointer being returned to Flutter
-    std::cout << "[Metal] get_next_drawable returning texture=" << (__bridge void*)g_flutter_texture
-              << " iosurface=" << (void*)g_io_surface << std::endl;
-
     return result;
 }
 
 extern "C" bool metal_renderer_present_drawable(void* user_data, const FlutterMetalTexture* texture) {
-    std::cout << "[Metal] present_drawable called" << std::endl;
 
     // Validate texture parameter
     if (texture == nullptr) {
@@ -429,9 +421,7 @@ extern "C" void metal_renderer_set_size(int32_t width, int32_t height) {
 // Uses MTLBlitCommandEncoder to synchronize the texture, ensuring GPU writes
 // are visible to CPU memory regardless of which command queue rendered to it.
 extern "C" void metal_renderer_flush_and_wait() {
-    std::cout << "[Metal] flush_and_wait starting..." << std::endl;
     if (g_metal_command_queue == nil) {
-        std::cout << "[Metal] flush_and_wait: command queue is nil!" << std::endl;
         return;
     }
 
@@ -442,7 +432,6 @@ extern "C" void metal_renderer_flush_and_wait() {
         // This ensures any pending GPU writes to the texture are completed
         // and visible to the CPU
         if (g_flutter_texture != nil) {
-            std::cout << "[Metal] flush_and_wait synchronizing texture=" << (__bridge void*)g_flutter_texture << std::endl;
             id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
 
             // synchronizeTexture ensures CPU sees the latest GPU writes
@@ -456,7 +445,6 @@ extern "C" void metal_renderer_flush_and_wait() {
 
         [commandBuffer commit];
         [commandBuffer waitUntilCompleted];
-        std::cout << "[Metal] flush_and_wait completed with texture sync" << std::endl;
     }
 }
 

@@ -2,19 +2,35 @@ import 'package:flutter/widgets.dart';
 import '../theme/mc_colors.dart';
 import '../theme/mc_theme.dart';
 
-/// A Minecraft-style slider widget.
-class McSlider extends StatefulWidget {
-  /// Current value (0.0 to 1.0).
-  final double value;
+/// A Minecraft-style slider widget for integer values.
+///
+/// This is a convenience widget that wraps the slider functionality
+/// for integer ranges (e.g., 0-100, 1-250, etc.) with automatic
+/// value formatting.
+class McIntSlider extends StatefulWidget {
+  /// Current integer value.
+  final int value;
+
+  /// Minimum value (inclusive).
+  final int min;
+
+  /// Maximum value (inclusive).
+  final int max;
 
   /// Called when the value changes.
-  final ValueChanged<double>? onChanged;
+  final ValueChanged<int>? onChanged;
 
   /// Called when dragging ends.
-  final ValueChanged<double>? onChangeEnd;
+  final ValueChanged<int>? onChangeEnd;
 
-  /// Optional label text.
+  /// Optional prefix label (e.g., "Slider" shows "Slider: 250").
   final String? label;
+
+  /// Whether to show the value in the label.
+  final bool showValue;
+
+  /// Optional custom value formatter.
+  final String Function(int value)? valueFormatter;
 
   /// Whether the slider is enabled.
   final bool enabled;
@@ -22,29 +38,70 @@ class McSlider extends StatefulWidget {
   /// Slider width.
   final double width;
 
-  const McSlider({
+  /// Step size for value changes (e.g., 1 for every integer, 5 for multiples of 5).
+  final int step;
+
+  const McIntSlider({
     super.key,
     required this.value,
+    required this.min,
+    required this.max,
     this.onChanged,
     this.onChangeEnd,
     this.label,
+    this.showValue = true,
+    this.valueFormatter,
     this.enabled = true,
     this.width = McSizes.buttonDefaultWidth,
-  });
+    this.step = 1,
+  }) : assert(min < max, 'min must be less than max'),
+       assert(step > 0, 'step must be positive');
 
   @override
-  State<McSlider> createState() => _McSliderState();
+  State<McIntSlider> createState() => _McIntSliderState();
 }
 
-class _McSliderState extends State<McSlider> {
+class _McIntSliderState extends State<McIntSlider> {
   bool _isDragging = false;
   bool _isHovered = false;
+
+  /// Clamp value to valid range, then normalize to 0.0-1.0.
+  double get _normalizedValue {
+    final clampedValue = widget.value.clamp(widget.min, widget.max);
+    return (clampedValue - widget.min) / (widget.max - widget.min);
+  }
+
+  /// The effective value, clamped to the valid range.
+  int get _effectiveValue => widget.value.clamp(widget.min, widget.max);
+
+  int _valueFromNormalized(double normalized) {
+    final rawValue = widget.min + (normalized * (widget.max - widget.min));
+    // Round to nearest step
+    final steppedValue = ((rawValue - widget.min) / widget.step).round() * widget.step + widget.min;
+    return steppedValue.clamp(widget.min, widget.max);
+  }
 
   void _updateValue(double localX, double width, double scale) {
     final handleWidth = McSizes.sliderHandleWidth * scale;
     final trackWidth = width - handleWidth;
-    final newValue = ((localX - handleWidth / 2) / trackWidth).clamp(0.0, 1.0);
-    widget.onChanged?.call(newValue);
+    final normalized = ((localX - handleWidth / 2) / trackWidth).clamp(0.0, 1.0);
+    final newValue = _valueFromNormalized(normalized);
+    if (newValue != widget.value) {
+      widget.onChanged?.call(newValue);
+    }
+  }
+
+  String get _displayLabel {
+    final displayValue = _effectiveValue;
+    final valueText = widget.valueFormatter?.call(displayValue) ?? displayValue.toString();
+    if (widget.label != null && widget.showValue) {
+      return '${widget.label}: $valueText';
+    } else if (widget.label != null) {
+      return widget.label!;
+    } else if (widget.showValue) {
+      return valueText;
+    }
+    return '';
   }
 
   @override
@@ -75,7 +132,7 @@ class _McSliderState extends State<McSlider> {
         onPointerUp: widget.enabled
             ? (_) {
                 setState(() => _isDragging = false);
-                widget.onChangeEnd?.call(widget.value);
+                widget.onChangeEnd?.call(_effectiveValue);
               }
             : null,
         onPointerCancel: widget.enabled
@@ -84,8 +141,8 @@ class _McSliderState extends State<McSlider> {
               }
             : null,
         child: CustomPaint(
-          painter: _McSliderPainter(
-            value: widget.value,
+          painter: _McIntSliderPainter(
+            value: _normalizedValue,
             isHovered: _isHovered,
             isDragging: _isDragging,
             isEnabled: widget.enabled,
@@ -94,11 +151,13 @@ class _McSliderState extends State<McSlider> {
           child: SizedBox(
             width: width,
             height: height,
-            child: widget.label != null
+            child: _displayLabel.isNotEmpty
                 ? Center(
                     child: Text(
-                      widget.label!,
+                      _displayLabel,
                       style: TextStyle(
+                        fontFamily: 'Minecraft',
+                        package: 'minecraft_ui',
                         fontSize: McTypography.fontHeight * scale,
                         color: widget.enabled ? McColors.white : McColors.lightGray,
                         shadows: [
@@ -118,14 +177,14 @@ class _McSliderState extends State<McSlider> {
   }
 }
 
-class _McSliderPainter extends CustomPainter {
+class _McIntSliderPainter extends CustomPainter {
   final double value;
   final bool isHovered;
   final bool isDragging;
   final bool isEnabled;
   final double scale;
 
-  _McSliderPainter({
+  _McIntSliderPainter({
     required this.value,
     required this.isHovered,
     required this.isDragging,
@@ -185,7 +244,7 @@ class _McSliderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_McSliderPainter oldDelegate) {
+  bool shouldRepaint(_McIntSliderPainter oldDelegate) {
     return value != oldDelegate.value ||
         isHovered != oldDelegate.isHovered ||
         isDragging != oldDelegate.isDragging ||

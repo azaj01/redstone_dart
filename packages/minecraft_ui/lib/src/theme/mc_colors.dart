@@ -146,6 +146,22 @@ abstract final class McColors {
   static const Color buttonBorderPressed = Color(0xFF1F1F1F);
 
   // ============================================================================
+  // Toggle Button Colors
+  // ============================================================================
+
+  /// Toggle "ON" text color (green)
+  static const Color toggleOn = Color(0xFF55FF55);
+
+  /// Toggle "OFF" text color (gray-red)
+  static const Color toggleOff = Color(0xFFFF5555);
+
+  /// Toggle "ON" text color when pressed (darker green)
+  static const Color toggleOnPressed = Color(0xFF3FBF3F);
+
+  /// Toggle "OFF" text color when pressed (darker red)
+  static const Color toggleOffPressed = Color(0xFFBF3F3F);
+
+  // ============================================================================
   // Tooltip Colors
   // ============================================================================
 

@@ -1417,7 +1417,6 @@ public class FlutterScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-        LOGGER.debug("[FlutterScreen] mouseClicked: x={}, y={}, button={}, flutterInitialized={}", event.x(), event.y(), event.button(), flutterInitialized);
         if (flutterInitialized) {
             // Mouse coordinates are in GUI pixels - Flutter handles scaling via pixel_ratio
             double mouseX = event.x();
@@ -1473,7 +1472,6 @@ public class FlutterScreen extends Screen {
         if (flutterInitialized) {
             // Mouse coordinates are in GUI pixels - Flutter handles scaling via pixel_ratio
             if (!pointerAdded) {
-                LOGGER.debug("[FlutterScreen] Pointer ADD: x={}, y={}", mouseX, mouseY);
                 DartBridgeClient.sendPointerEvent(PHASE_ADD, mouseX, mouseY, 0);
                 pointerAdded = true;
                 // Don't send HOVER on the same frame as ADD - let Flutter process ADD first
@@ -1481,13 +1479,12 @@ public class FlutterScreen extends Screen {
                 return;
             }
 
-            // IMPORTANT: Only send MOVE if we actually sent DOWN for buttons that Flutter knows about
-            // This prevents crashes when GUI opens while button is already held
-            if (buttonsDownInFlutter != 0) {
-                DartBridgeClient.sendPointerEvent(PHASE_MOVE, mouseX, mouseY, buttonsDownInFlutter);
-            } else {
+            // When buttons are down, mouseDragged handles MOVE events
+            // Only send HOVER when no buttons are pressed
+            if (buttonsDownInFlutter == 0) {
                 DartBridgeClient.sendPointerEvent(PHASE_HOVER, mouseX, mouseY, 0);
             }
+            // Note: MOVE events during drag are sent by mouseDragged()
         }
         super.mouseMoved(mouseX, mouseY);
     }
