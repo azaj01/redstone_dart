@@ -95,6 +95,13 @@ class MinecraftGuiApp extends StatelessWidget {
               screenBuilder: (context) => const SimpleFurnaceScreen(),
               cacheSlotPositions: true,
             ),
+            // ExampleFurnace - ProcessingBlockEntity-based furnace
+            GuiRoute(
+              title: 'Example Furnace',
+              containerBuilder: () => ExampleFurnaceContainer(),
+              screenBuilder: (context) => const SimpleFurnaceScreen(),
+              cacheSlotPositions: true,
+            ),
             // Animated Chest - demonstrates stateful animations with lid opening
             GuiRoute(
               title: 'Animated Chest',

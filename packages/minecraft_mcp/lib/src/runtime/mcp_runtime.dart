@@ -487,6 +487,87 @@ class McpRuntime implements GameContextProvider {
   }
 
   // ---------------------------------------------------------------------------
+  // Block Entity Debug Operations
+  // ---------------------------------------------------------------------------
+
+  @override
+  Map<String, dynamic>? getBlockEntityDebugInfo(int x, int y, int z) {
+    _ensureReady();
+
+    final blockEntity = BlockEntityRegistry.getAtPosition<BlockEntity>(x, y, z);
+    if (blockEntity == null) return null;
+
+    final info = <String, dynamic>{
+      'type': blockEntity.id,
+      'position': {'x': x, 'y': y, 'z': z},
+    };
+
+    // Add debug info if the block entity supports it
+    if (blockEntity is DebuggableBlockEntity) {
+      final debuggable = blockEntity as DebuggableBlockEntity;
+      info.addAll(debuggable.toDebugJson());
+    }
+
+    return info;
+  }
+
+  @override
+  bool setBlockEntityValue(
+    int x,
+    int y,
+    int z,
+    int value, {
+    String? name,
+    int? index,
+  }) {
+    _ensureReady();
+
+    final blockEntity = BlockEntityRegistry.getAtPosition<BlockEntity>(x, y, z);
+    if (blockEntity == null || blockEntity is! DebuggableBlockEntity) {
+      return false;
+    }
+
+    final debuggable = blockEntity as DebuggableBlockEntity;
+
+    if (name != null) {
+      return debuggable.debugSetValueByName(name, value);
+    } else if (index != null) {
+      return debuggable.debugSetValueByIndex(index, value);
+    }
+
+    return false;
+  }
+
+  @override
+  bool setBlockEntitySlot(
+    int x,
+    int y,
+    int z,
+    int slot,
+    String itemId,
+    int count,
+  ) {
+    _ensureReady();
+
+    final blockEntity = BlockEntityRegistry.getAtPosition<BlockEntity>(x, y, z);
+    if (blockEntity == null || blockEntity is! DebuggableBlockEntity) {
+      return false;
+    }
+
+    final debuggable = blockEntity as DebuggableBlockEntity;
+
+    if (slot < 0 || slot >= debuggable.debugSlotCount) {
+      return false;
+    }
+
+    final stack = count <= 0
+        ? ItemStack.empty
+        : ItemStack.of(itemId, count);
+    debuggable.debugSetSlot(slot, stack);
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
   // Helper Methods
   // ---------------------------------------------------------------------------
 

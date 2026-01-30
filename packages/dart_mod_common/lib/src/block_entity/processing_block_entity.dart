@@ -2,6 +2,7 @@
 library;
 
 import '../item/item_stack.dart';
+import 'block_entity_debug.dart';
 import 'block_entity_settings.dart';
 import 'block_entity_with_inventory.dart';
 import 'synced_value.dart';
@@ -33,20 +34,37 @@ import 'synced_value.dart';
 ///   }
 /// }
 /// ```
-abstract class ProcessingBlockEntity extends BlockEntityWithInventory {
+abstract class ProcessingBlockEntity extends BlockEntityWithInventory
+    with DebuggableBlockEntity {
   // Synced state (maps to ContainerData indices)
 
   /// Current burn time remaining (ticks).
-  final SyncedInt litTime = SyncedInt.withIndex(0);
+  final SyncedInt litTime = SyncedInt.withIndex(0,
+      name: 'litTime',
+      description: 'Current burn time remaining',
+      min: 0,
+      unit: 'ticks');
 
   /// Total burn time of current fuel (ticks).
-  final SyncedInt litDuration = SyncedInt.withIndex(1);
+  final SyncedInt litDuration = SyncedInt.withIndex(1,
+      name: 'litDuration',
+      description: 'Total burn time of current fuel',
+      min: 0,
+      unit: 'ticks');
 
   /// Current cooking progress (ticks).
-  final SyncedInt cookingProgress = SyncedInt.withIndex(2);
+  final SyncedInt cookingProgress = SyncedInt.withIndex(2,
+      name: 'cookingProgress',
+      description: 'Current cooking progress',
+      min: 0,
+      unit: 'ticks');
 
   /// Total cooking time for the current recipe (ticks).
-  final SyncedInt cookingTotalTime = SyncedInt.withIndex(3);
+  final SyncedInt cookingTotalTime = SyncedInt.withIndex(3,
+      name: 'cookingTotalTime',
+      description: 'Total cooking time for current recipe',
+      min: 0,
+      unit: 'ticks');
 
   /// Creates a processing block entity with the given settings.
   ProcessingBlockEntity({required ProcessingSettings settings})
@@ -226,4 +244,19 @@ abstract class ProcessingBlockEntity extends BlockEntityWithInventory {
     cookingTotalTime.value =
         nbt['cookingTotalTime'] as int? ?? processingSettings.processTime;
   }
+
+  // ============ DebuggableBlockEntity Implementation ============
+
+  @override
+  List<SyncedInt> get debugSyncedValues =>
+      [litTime, litDuration, cookingProgress, cookingTotalTime];
+
+  @override
+  int get debugSlotCount => slotCount;
+
+  @override
+  ItemStack debugGetSlot(int index) => getSlot(index);
+
+  @override
+  void debugSetSlot(int index, ItemStack item) => setSlot(index, item);
 }

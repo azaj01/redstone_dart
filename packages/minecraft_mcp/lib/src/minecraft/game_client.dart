@@ -405,6 +405,93 @@ class GameClient {
       rethrow;
     }
   }
+
+  // ===========================================================================
+  // Block Entity Debug Operations
+  // ===========================================================================
+
+  /// Get debug info for a block entity at coordinates.
+  ///
+  /// Returns null if no block entity exists at this position.
+  /// The returned map includes:
+  /// - `type`: Block entity type ID
+  /// - `position`: {x, y, z}
+  /// - `syncedValues`: List of synced values with name, index, value, and metadata
+  /// - `inventory`: List of inventory slots with item and count
+  Future<Map<String, dynamic>?> getBlockEntity(int x, int y, int z) async {
+    try {
+      return await _get('/block-entity', {
+        'x': x.toString(),
+        'y': y.toString(),
+        'z': z.toString(),
+      });
+    } on GameClientException catch (e) {
+      if (e.statusCode == 404) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  /// Set a synced value on a block entity.
+  ///
+  /// Use either [name] or [index] to identify the value.
+  /// Returns true if successful.
+  Future<bool> setBlockEntityValue(
+    int x,
+    int y,
+    int z,
+    int value, {
+    String? name,
+    int? index,
+  }) async {
+    try {
+      await _post('/block-entity/set-value', {
+        'x': x,
+        'y': y,
+        'z': z,
+        if (name != null) 'name': name,
+        if (index != null) 'index': index,
+        'value': value,
+      });
+      return true;
+    } on GameClientException catch (e) {
+      if (e.statusCode == 400) {
+        return false;
+      }
+      rethrow;
+    }
+  }
+
+  /// Set an inventory slot on a block entity.
+  ///
+  /// Set count to 0 to clear the slot.
+  /// Returns true if successful.
+  Future<bool> setBlockEntitySlot(
+    int x,
+    int y,
+    int z,
+    int slot,
+    String itemId,
+    int count,
+  ) async {
+    try {
+      await _post('/block-entity/set-slot', {
+        'x': x,
+        'y': y,
+        'z': z,
+        'slot': slot,
+        'itemId': itemId,
+        'count': count,
+      });
+      return true;
+    } on GameClientException catch (e) {
+      if (e.statusCode == 400) {
+        return false;
+      }
+      rethrow;
+    }
+  }
 }
 
 /// Exception thrown by the game client.

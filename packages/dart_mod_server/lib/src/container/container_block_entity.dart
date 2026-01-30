@@ -9,6 +9,13 @@ import 'package:dart_mod_common/dart_mod_common.dart';
 /// by separating the container structure (slots, synced data) from the
 /// block entity logic (ticking, processing).
 ///
+/// Implements [DebuggableBlockEntity] for programmatic testing access:
+/// ```dart
+/// final furnace = BlockEntityRegistry.getAtPosition<SimpleFurnaceEntity>(0, -59, 0);
+/// furnace?.container.burnProgress.value = 100;  // Direct field access
+/// furnace?.debugSetSlot(0, ItemStack.of('minecraft:coal', 64));  // Debug API
+/// ```
+///
 /// ## Example
 ///
 /// ```dart
@@ -39,7 +46,8 @@ import 'package:dart_mod_common/dart_mod_common.dart';
 /// }
 /// ```
 abstract class ContainerBlockEntity<T extends ContainerDefinition>
-    extends BlockEntityWithInventory {
+    extends BlockEntityWithInventory
+    with DebuggableBlockEntity {
   /// The container definition managing slots and synced data.
   final T container;
 
@@ -103,4 +111,18 @@ abstract class ContainerBlockEntity<T extends ContainerDefinition>
       }
     }
   }
+
+  // ============ DebuggableBlockEntity Implementation ============
+
+  @override
+  List<SyncedInt> get debugSyncedValues => container.syncedValuesList;
+
+  @override
+  int get debugSlotCount => slotCount;
+
+  @override
+  ItemStack debugGetSlot(int index) => getSlot(index);
+
+  @override
+  void debugSetSlot(int index, ItemStack item) => setSlot(index, item);
 }

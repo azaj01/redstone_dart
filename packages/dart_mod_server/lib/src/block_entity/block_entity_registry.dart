@@ -219,4 +219,38 @@ class BlockEntityRegistry {
       typeInstances.clear();
     }
   }
+
+  /// Get a block entity at a specific position (x, y, z).
+  ///
+  /// Searches all registered handler types for an entity at this position.
+  /// Returns null if no block entity exists at this position.
+  ///
+  /// Optionally specify [T] to get a typed result:
+  /// ```dart
+  /// final furnace = BlockEntityRegistry.getAtPosition<ExampleFurnace>(0, -59, 0);
+  /// furnace?.cookingProgress.value = 100;
+  /// ```
+  static T? getAtPosition<T extends BlockEntity>(int x, int y, int z) {
+    final posHash = encodeBlockPos(BlockPos(x, y, z));
+
+    // Search all handler types for an entity at this position
+    for (final handlerId in _instances.keys) {
+      final instance = _instances[handlerId]?[posHash];
+      if (instance != null) {
+        if (instance is T) return instance;
+        // Found entity but wrong type
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Get all block entities currently in the world.
+  ///
+  /// Returns an iterable of all active block entity instances.
+  static Iterable<BlockEntity> get allInstances sync* {
+    for (final typeInstances in _instances.values) {
+      yield* typeInstances.values;
+    }
+  }
 }

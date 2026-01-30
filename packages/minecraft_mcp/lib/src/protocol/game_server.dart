@@ -124,6 +124,11 @@ class GameServer {
     router.post('/player/clear-inventory', _clearInventory);
     router.post('/player/give-item', _giveItem);
 
+    // Block Entity Debug operations
+    router.get('/block-entity', _getBlockEntity);
+    router.post('/block-entity/set-value', _setBlockEntityValue);
+    router.post('/block-entity/set-slot', _setBlockEntitySlot);
+
     // Status
     router.get('/status', _getStatus);
 
@@ -752,6 +757,99 @@ class GameServer {
       return _errorResponse('Failed to give item: $e', statusCode: 400);
     }
   }
+
+  // ===========================================================================
+  // Block Entity Debug Endpoints
+  // ===========================================================================
+
+  Future<Response> _getBlockEntity(Request request) async {
+    final notReady = _checkGameReady();
+    if (notReady != null) return notReady;
+
+    try {
+      final x = int.parse(request.url.queryParameters['x'] ?? '0');
+      final y = int.parse(request.url.queryParameters['y'] ?? '0');
+      final z = int.parse(request.url.queryParameters['z'] ?? '0');
+      final context = _getContext()!;
+
+      final info = context.getBlockEntityDebugInfo(x, y, z);
+      if (info == null) {
+        return _errorResponse(
+          'No block entity at ($x, $y, $z)',
+          statusCode: 404,
+        );
+      }
+
+      return _jsonResponse(info);
+    } catch (e) {
+      return _errorResponse('Failed to get block entity: $e', statusCode: 400);
+    }
+  }
+
+  Future<Response> _setBlockEntityValue(Request request) async {
+    final notReady = _checkGameReady();
+    if (notReady != null) return notReady;
+
+    try {
+      final body = await _parseBody(request);
+      final x = body['x'] as int;
+      final y = body['y'] as int;
+      final z = body['z'] as int;
+      final name = body['name'] as String?;
+      final index = body['index'] as int?;
+      final value = body['value'] as int;
+      final context = _getContext()!;
+
+      final success = context.setBlockEntityValue(
+        x,
+        y,
+        z,
+        value,
+        name: name,
+        index: index,
+      );
+
+      if (!success) {
+        return _errorResponse(
+          'Failed to set value: block entity not found or invalid name/index',
+          statusCode: 400,
+        );
+      }
+
+      return _jsonResponse(SuccessResponse(message: 'Value set').toJson());
+    } catch (e) {
+      return _errorResponse('Failed to set block entity value: $e', statusCode: 400);
+    }
+  }
+
+  Future<Response> _setBlockEntitySlot(Request request) async {
+    final notReady = _checkGameReady();
+    if (notReady != null) return notReady;
+
+    try {
+      final body = await _parseBody(request);
+      final x = body['x'] as int;
+      final y = body['y'] as int;
+      final z = body['z'] as int;
+      final slot = body['slot'] as int;
+      final itemId = body['itemId'] as String;
+      final count = body['count'] as int? ?? 1;
+      final context = _getContext()!;
+
+      final success = context.setBlockEntitySlot(x, y, z, slot, itemId, count);
+
+      if (!success) {
+        return _errorResponse(
+          'Failed to set slot: block entity not found or invalid slot',
+          statusCode: 400,
+        );
+      }
+
+      return _jsonResponse(SuccessResponse(message: 'Slot set').toJson());
+    } catch (e) {
+      return _errorResponse('Failed to set block entity slot: $e', statusCode: 400);
+    }
+  }
 }
 
 /// Provider interface for game context operations.
@@ -818,4 +916,17 @@ abstract class GameContextProvider {
   // Player Inventory operations
   void clearInventory();
   bool giveItem(String itemId, int count);
+
+  // Block Entity Debug operations
+  /// Get debug info for a block entity at position.
+  /// Returns null if no debuggable block entity exists at this position.
+  Map<String, dynamic>? getBlockEntityDebugInfo(int x, int y, int z);
+
+  /// Set a synced value on a block entity by name or index.
+  /// Returns true if successful.
+  bool setBlockEntityValue(int x, int y, int z, int value, {String? name, int? index});
+
+  /// Set an inventory slot on a block entity.
+  /// Returns true if successful.
+  bool setBlockEntitySlot(int x, int y, int z, int slot, String itemId, int count);
 }

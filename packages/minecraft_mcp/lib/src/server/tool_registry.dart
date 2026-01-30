@@ -509,6 +509,80 @@ class ToolRegistry {
         'required': ['itemId'],
       },
     ),
+
+    // Block Entity Debug tools
+    ToolDefinition(
+      name: 'getBlockEntity',
+      description: 'Get debug info for a block entity at coordinates, including synced values and inventory slots. Returns type, position, all synced data values with their names/metadata, and inventory contents.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'x': {'type': 'integer', 'description': 'X coordinate'},
+          'y': {
+            'type': 'integer',
+            'description': 'Y coordinate (world range: -64 to 320, superflat ground: Y=-60)',
+          },
+          'z': {'type': 'integer', 'description': 'Z coordinate'},
+        },
+        'required': ['x', 'y', 'z'],
+      },
+    ),
+    ToolDefinition(
+      name: 'setBlockEntityValue',
+      description: 'Set a synced value on a block entity by name (e.g., "cookingProgress", "litTime"). Use getBlockEntity first to see available values.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'x': {'type': 'integer', 'description': 'X coordinate'},
+          'y': {
+            'type': 'integer',
+            'description': 'Y coordinate (world range: -64 to 320, superflat ground: Y=-60)',
+          },
+          'z': {'type': 'integer', 'description': 'Z coordinate'},
+          'name': {
+            'type': 'string',
+            'description': 'Value name (e.g., "cookingProgress", "litTime")',
+          },
+          'index': {
+            'type': 'integer',
+            'description': 'Value index (alternative to name)',
+          },
+          'value': {
+            'type': 'integer',
+            'description': 'New value to set',
+          },
+        },
+        'required': ['x', 'y', 'z', 'value'],
+      },
+    ),
+    ToolDefinition(
+      name: 'setBlockEntitySlot',
+      description: 'Set an inventory slot on a block entity. Use getBlockEntity first to see available slots.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'x': {'type': 'integer', 'description': 'X coordinate'},
+          'y': {
+            'type': 'integer',
+            'description': 'Y coordinate (world range: -64 to 320, superflat ground: Y=-60)',
+          },
+          'z': {'type': 'integer', 'description': 'Z coordinate'},
+          'slot': {
+            'type': 'integer',
+            'description': 'Slot index',
+          },
+          'itemId': {
+            'type': 'string',
+            'description': 'Item ID (e.g., "minecraft:coal", "minecraft:iron_ore")',
+          },
+          'count': {
+            'type': 'integer',
+            'description': 'Item count (default 1, use 0 to clear slot)',
+          },
+        },
+        'required': ['x', 'y', 'z', 'slot', 'itemId'],
+      },
+    ),
   ];
 
   /// List all available tools.
@@ -666,6 +740,18 @@ class ToolRegistry {
 
       case 'giveItem':
         return _handleGiveItem(args);
+
+      // =========================================================================
+      // Block Entity Debug Tools
+      // =========================================================================
+      case 'getBlockEntity':
+        return _handleGetBlockEntity(args);
+
+      case 'setBlockEntityValue':
+        return _handleSetBlockEntityValue(args);
+
+      case 'setBlockEntitySlot':
+        return _handleSetBlockEntitySlot(args);
 
       default:
         throw StateError('Tool "$name" has no implementation');
@@ -1240,6 +1326,84 @@ class ToolRegistry {
 
     return {
       'success': true,
+      'itemId': itemId,
+      'count': count,
+    };
+  }
+
+  // ===========================================================================
+  // Block Entity Debug Tool Handlers
+  // ===========================================================================
+
+  Future<Map<String, dynamic>> _handleGetBlockEntity(Map<String, dynamic> args) async {
+    _ensureGameClient();
+
+    final x = args['x'] as int;
+    final y = args['y'] as int;
+    final z = args['z'] as int;
+
+    final info = await gameClient!.getBlockEntity(x, y, z);
+
+    if (info == null) {
+      throw StateError('No block entity at ($x, $y, $z)');
+    }
+
+    return info;
+  }
+
+  Future<Map<String, dynamic>> _handleSetBlockEntityValue(Map<String, dynamic> args) async {
+    _ensureGameClient();
+
+    final x = args['x'] as int;
+    final y = args['y'] as int;
+    final z = args['z'] as int;
+    final name = args['name'] as String?;
+    final index = args['index'] as int?;
+    final value = args['value'] as int;
+
+    final success = await gameClient!.setBlockEntityValue(
+      x, y, z, value,
+      name: name,
+      index: index,
+    );
+
+    if (!success) {
+      throw StateError('Failed to set value: block entity not found or invalid name/index');
+    }
+
+    return {
+      'success': true,
+      'x': x,
+      'y': y,
+      'z': z,
+      'name': name,
+      'index': index,
+      'value': value,
+    };
+  }
+
+  Future<Map<String, dynamic>> _handleSetBlockEntitySlot(Map<String, dynamic> args) async {
+    _ensureGameClient();
+
+    final x = args['x'] as int;
+    final y = args['y'] as int;
+    final z = args['z'] as int;
+    final slot = args['slot'] as int;
+    final itemId = args['itemId'] as String;
+    final count = args['count'] as int? ?? 1;
+
+    final success = await gameClient!.setBlockEntitySlot(x, y, z, slot, itemId, count);
+
+    if (!success) {
+      throw StateError('Failed to set slot: block entity not found or invalid slot');
+    }
+
+    return {
+      'success': true,
+      'x': x,
+      'y': y,
+      'z': z,
+      'slot': slot,
       'itemId': itemId,
       'count': count,
     };
