@@ -11,6 +11,7 @@ import 'package:dart_mod_common/src/jni/jni_internal.dart';
 import 'package:ffi/ffi.dart';
 
 import 'block_entity/block_entity_callbacks.dart';
+import 'events.dart';
 
 /// Type alias for backward compatibility with code using Bridge.
 typedef Bridge = ServerBridge;
@@ -803,6 +804,39 @@ class ServerBridge {
     );
     _serverRegisterRegistryReadyHandler(nativeCallback);
     print('ServerBridge: Registry ready callback registered');
+  }
+
+  /// Convenience method to initialize the bridge and run mod setup.
+  ///
+  /// This is the recommended way to initialize a Redstone Dart mod.
+  /// It combines:
+  /// - Bridge.initialize()
+  /// - Events.registerProxyBlockHandlers()
+  /// - Events.registerProxyItemHandlers()
+  /// - Events.registerCustomGoalHandlers()
+  /// - Bridge.onRegistryReady(callback)
+  ///
+  /// Example:
+  /// ```dart
+  /// void main() {
+  ///   Bridge.run(() {
+  ///     registerBlocks();
+  ///     registerItems();
+  ///     registerEntities();
+  ///   });
+  /// }
+  /// ```
+  static void run(void Function() onReady) {
+    // Initialize the native bridge
+    initialize();
+
+    // Register all proxy handlers (required for custom blocks, items, entities)
+    Events.registerProxyBlockHandlers();
+    Events.registerProxyItemHandlers();
+    Events.registerCustomGoalHandlers();
+
+    // Defer registration until Java signals that registries are ready
+    onRegistryReady(onReady);
   }
 
   // ==========================================================================

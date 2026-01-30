@@ -30,26 +30,12 @@ import 'recipes/recipes.dart';
 /// Server-side entry point for the mod.
 ///
 /// This is called when the server-side Dart VM is initialized.
-/// Registration of items/blocks/entities must be deferred until Java signals
-/// that registries are ready.
+/// Bridge.run() handles all initialization (native bridge, proxy handlers, etc.)
+/// and defers registration until Java signals that registries are ready.
 void main() {
   print('Server mod initialized!');
 
-  // Initialize the native bridge
-  // Note: In dual-runtime mode, the bridge is initialized by the native code
-  // before main() is called, so this may be a no-op or skip if already initialized.
-  Bridge.initialize();
-
-  // Register proxy handlers (required for custom blocks and items)
-  // These handlers don't use Minecraft registries, so they can be set up immediately
-  Events.registerProxyBlockHandlers();
-  Events.registerProxyItemHandlers();
-  Events.registerCustomGoalHandlers(); // Required for custom Dart-defined AI goals
-
-  // Defer registration until Java signals that registries are ready
-  // This is critical for timing - Dart's main() runs immediately
-  // but Minecraft's registries may not be ready yet
-  Bridge.onRegistryReady(() {
+  Bridge.run(() {
     print('Registry ready - registering items, blocks, entities...');
 
     // =========================================================================

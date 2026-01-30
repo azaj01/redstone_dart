@@ -1,4 +1,4 @@
-// Tests for HelloBlock
+// Tests for {{project_name_title}}
 //
 // Run with: redstone test
 
@@ -26,6 +26,18 @@ Future<void> main() async {
 
       // Verify it's now air
       expect(game.getBlock(pos), isAirBlock);
+    });
+  });
+
+  await group('HelloWand', () async {
+    await testMinecraft('can be given to player', (game) async {
+      final player = game.player;
+
+      // Give the item to the player
+      game.giveItem(player, Item('{{project_name}}:hello_wand'));
+
+      // Verify player has the item
+      expect(player.inventory.contains('{{project_name}}:hello_wand'), isTrue);
     });
   });
 

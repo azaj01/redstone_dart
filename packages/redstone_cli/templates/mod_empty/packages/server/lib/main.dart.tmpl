@@ -1,4 +1,4 @@
-// Server entry point for dual-runtime mode
+// Server entry point for {{project_name_title}}
 //
 // This file handles ALL game logic:
 // - Block/Item/Entity registrations
@@ -8,54 +8,65 @@
 // - Event handlers
 // - Custom AI goals
 //
-// It runs on the Server thread using the pure Dart VM (dart_dll).
+// It runs on the Server thread using the pure Dart VM.
 
-// Server-side Dart mod API
 import 'package:dart_mod_server/dart_mod_server.dart';
-
-// MCP runtime for AI-controlled testing
 import 'package:minecraft_mcp/runtime.dart';
 
 /// Server-side entry point for the mod.
 ///
-/// This is called when the server-side Dart VM is initialized.
-/// Registration of items/blocks/entities must be deferred until Java signals
-/// that registries are ready.
+/// Bridge.run() handles all the initialization boilerplate:
+/// - Bridge.initialize()
+/// - Events.registerProxyBlockHandlers()
+/// - Events.registerProxyItemHandlers()
+/// - Events.registerCustomGoalHandlers()
+/// - Bridge.onRegistryReady(callback)
 void main() {
   print('{{project_name_title}} server mod initialized!');
 
-  // Initialize the native bridge
-  Bridge.initialize();
-
-  // Register proxy handlers (required for custom blocks and items)
-  Events.registerProxyBlockHandlers();
-  Events.registerProxyItemHandlers();
-
-  // Defer registration until Java signals that registries are ready
-  Bridge.onRegistryReady(() {
-    print('Registry ready - registering items, blocks, entities...');
+  Bridge.run(() {
+    // =========================================================================
+    // Register your custom items here
+    // Items must be registered BEFORE blocks that reference them as drops
+    // =========================================================================
+    // ItemRegistry.register(MyItem());
+    // ItemRegistry.freeze();
 
     // =========================================================================
     // Register your custom blocks here
     // =========================================================================
     // BlockRegistry.register(MyBlock());
-
-    // =========================================================================
-    // Register your custom items here
-    // =========================================================================
-    // ItemRegistry.register(MyItem());
+    // BlockRegistry.freeze();
 
     // =========================================================================
     // Register your custom entities here
     // =========================================================================
     // EntityRegistry.register(MyEntity());
+    // EntityRegistry.freeze();
 
     // =========================================================================
-    // Register commands, recipes, loot tables, events as needed
+    // Register commands
     // =========================================================================
+    // Commands.register('mycommand', execute: (ctx) { ... });
 
-    print(
-        '{{project_name_title}} server mod ready with ${BlockRegistry.blockCount} custom blocks!');
+    // =========================================================================
+    // Register event handlers
+    // =========================================================================
+    // Events.onPlayerJoin((player) { ... });
+
+    // =========================================================================
+    // Register recipes
+    // =========================================================================
+    // Recipes.shaped('mymod:myblock', pattern: [...], keys: {...}, result: '...');
+
+    // =========================================================================
+    // Register loot table modifications
+    // =========================================================================
+    // LootTables.modify('minecraft:entities/zombie', (builder) { ... });
+
+    print('{{project_name_title}} server mod ready!');
+    print('  Blocks: ${BlockRegistry.blockCount} registered');
+    print('  Items: ${ItemRegistry.itemCount} registered');
 
     // Initialize MCP runtime for AI-controlled testing (if enabled)
     initializeMcpRuntime();

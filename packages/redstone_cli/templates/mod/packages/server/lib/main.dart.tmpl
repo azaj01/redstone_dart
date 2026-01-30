@@ -1,4 +1,4 @@
-// Server entry point for dual-runtime mode
+// Server entry point for {{project_name_title}}
 //
 // This file handles ALL game logic:
 // - Block/Item/Entity registrations
@@ -8,18 +8,56 @@
 // - Event handlers
 // - Custom AI goals
 //
-// It runs on the Server thread using the pure Dart VM (dart_dll).
+// It runs on the Server thread using the pure Dart VM.
 
-// Server-side Dart mod API
 import 'package:dart_mod_server/dart_mod_server.dart';
-
-// MCP runtime for AI-controlled testing
 import 'package:minecraft_mcp/runtime.dart';
+
+// =============================================================================
+// MAIN ENTRY POINT
+// =============================================================================
+
+/// Server-side entry point for the mod.
+///
+/// Bridge.run() handles all the initialization boilerplate:
+/// - Bridge.initialize()
+/// - Events.registerProxyBlockHandlers()
+/// - Events.registerProxyItemHandlers()
+/// - Events.registerCustomGoalHandlers()
+/// - Bridge.onRegistryReady(callback)
+void main() {
+  print('{{project_name_title}} server mod initialized!');
+
+  Bridge.run(() {
+    // Register mod content in this order (dependencies first)
+    registerItems();
+    registerBlocks();
+    registerCommands();
+    registerEventHandlers();
+    registerRecipes();
+    registerLootTables();
+
+    print('{{project_name_title}} server mod ready!');
+    print('  Blocks: ${BlockRegistry.blockCount} registered');
+    print('  Items: ${ItemRegistry.itemCount} registered');
+    print('  Commands: /hello, /heal');
+
+    // Initialize MCP runtime for AI-controlled testing (if enabled)
+    initializeMcpRuntime();
+  });
+}
+
+// =============================================================================
+// BLOCKS
+// =============================================================================
 
 /// Example custom block that shows a message when right-clicked.
 ///
-/// This demonstrates how to create custom blocks in Dart.
-/// The block will appear in the creative menu under "Building Blocks".
+/// Demonstrates:
+/// - BlockSettings for hardness, resistance, etc.
+/// - BlockModel for textures
+/// - onUse handler for player interaction
+/// - onBreak handler for destruction logic
 class HelloBlock extends CustomBlock {
   HelloBlock()
       : super(
@@ -29,15 +67,26 @@ class HelloBlock extends CustomBlock {
             resistance: 1.0,
             requiresTool: false,
           ),
+          // Use the generated texture from assets/textures/block/
+          model: BlockModel.cubeAll(
+            texture: 'assets/textures/block/hello_block.png',
+          ),
         );
 
   @override
   ActionResult onUse(int worldId, int x, int y, int z, int playerId, int hand) {
-    // Get player info and send a message
     final player = Players.getPlayer(playerId);
     if (player != null) {
       player.sendMessage(
-          'Hello from {{project_name_title}}! You clicked at ($x, $y, $z)');
+        '{{project_name_title}}: Hello! You clicked at ($x, $y, $z)',
+      );
+      // Spawn some particles for visual feedback
+      World.overworld.spawnParticles(
+        Particles.happyVillager,
+        Vec3(x + 0.5, y + 1.0, z + 0.5),
+        count: 10,
+        delta: Vec3(0.3, 0.3, 0.3),
+      );
     }
     return ActionResult.success;
   }
@@ -49,54 +98,213 @@ class HelloBlock extends CustomBlock {
   }
 }
 
-/// Server-side entry point for the mod.
+/// Registers all custom blocks.
+void registerBlocks() {
+  BlockRegistry.register(HelloBlock());
+  // Add more blocks here:
+  // BlockRegistry.register(MyOtherBlock());
+
+  BlockRegistry.freeze();
+}
+
+// =============================================================================
+// ITEMS
+// =============================================================================
+
+/// Example custom item with onUse handler.
 ///
-/// This is called when the server-side Dart VM is initialized.
-/// Registration of items/blocks/entities must be deferred until Java signals
-/// that registries are ready.
-void main() {
-  print('{{project_name_title}} server mod initialized!');
+/// Demonstrates:
+/// - ItemSettings for stack size, durability, etc.
+/// - ItemModel for textures
+/// - onUse handler for right-click in air
+class HelloWand extends CustomItem {
+  HelloWand()
+      : super(
+          id: '{{project_name}}:hello_wand',
+          settings: ItemSettings(
+            maxStackSize: 1,
+          ),
+          model: ItemModel.generated(
+            texture: 'assets/textures/item/hello_wand.png',
+          ),
+        );
 
-  // Initialize the native bridge
-  // Note: In dual-runtime mode, the bridge is initialized by the native code
-  // before main() is called, so this may be a no-op or skip if already initialized.
-  Bridge.initialize();
+  @override
+  ActionResult onUse(int worldId, int playerId, int hand) {
+    final player = Players.getPlayer(playerId);
+    if (player == null) return ActionResult.pass;
 
-  // Register proxy handlers (required for custom blocks and items)
-  // These handlers don't use Minecraft registries, so they can be set up immediately
-  Events.registerProxyBlockHandlers();
-  Events.registerProxyItemHandlers();
+    // Give the player a speed boost
+    player.sendMessage('{{project_name_title}}: Woosh!');
+    player.addEffect('minecraft:speed', duration: 200, amplifier: 2);
 
-  // Defer registration until Java signals that registries are ready
-  // This is critical for timing - Dart's main() runs immediately
-  // but Minecraft's registries may not be ready yet
-  Bridge.onRegistryReady(() {
-    print('Registry ready - registering items, blocks, entities...');
+    return ActionResult.success;
+  }
+}
 
-    // =========================================================================
-    // Register your custom blocks here
-    // =========================================================================
-    BlockRegistry.register(HelloBlock());
+/// Registers all custom items.
+/// Items must be registered BEFORE blocks that reference them as drops.
+void registerItems() {
+  ItemRegistry.register(HelloWand());
+  // Add more items here:
+  // ItemRegistry.register(MyOtherItem());
 
-    // =========================================================================
-    // Register your custom items here
-    // =========================================================================
-    // ItemRegistry.register(MyItem());
+  ItemRegistry.freeze();
+}
 
-    // =========================================================================
-    // Register your custom entities here
-    // =========================================================================
-    // EntityRegistry.register(MyEntity());
+// =============================================================================
+// COMMANDS
+// =============================================================================
 
-    // =========================================================================
-    // Register commands, recipes, loot tables, events as needed
-    // =========================================================================
+/// Registers all custom commands.
+///
+/// Commands use the Commands API:
+/// - Commands.register() for simple commands
+/// - context.source for the player who ran the command
+/// - context.getArgument() for optional arguments
+/// - context.requireArgument() for required arguments
+void registerCommands() {
+  // /hello - A simple greeting command
+  Commands.register(
+    'hello',
+    description: 'Say hello to the player',
+    execute: (context) {
+      context.source.sendMessage(
+        '{{project_name_title}}: Hello, ${context.source.name}!',
+      );
+      return 1;
+    },
+  );
 
-    print(
-        '{{project_name_title}} server mod ready with ${BlockRegistry.blockCount} custom blocks!');
+  // /heal [amount] - Heals the player
+  Commands.register(
+    'heal',
+    description: 'Heal the player',
+    arguments: [
+      CommandArgument('amount', ArgumentType.integer, required: false),
+    ],
+    execute: (context) {
+      final player = context.source;
+      final amount = context.getArgument<int>('amount');
 
-    // Initialize MCP runtime for AI-controlled testing (if enabled)
-    // This starts an HTTP server that allows external AI agents to control Minecraft
-    initializeMcpRuntime();
+      if (amount != null && amount > 0) {
+        final newHealth = (player.health + amount).clamp(0.0, player.maxHealth);
+        player.health = newHealth;
+        context.sendFeedback('Healed for $amount. Health: ${newHealth.toInt()}');
+      } else {
+        player.health = player.maxHealth;
+        context.sendFeedback('Fully healed!');
+      }
+
+      return 1;
+    },
+  );
+
+  print('Commands: Registered 2 custom commands');
+}
+
+// =============================================================================
+// EVENTS
+// =============================================================================
+
+/// Registers all event handlers.
+///
+/// Events API supports:
+/// - Player events: onPlayerJoin, onPlayerDeath, onPlayerChat
+/// - Entity events: onEntityDamage, onEntityDeath
+/// - Block events: onBlockBreak, onBlockPlace
+/// - Server lifecycle: onServerStarted, onServerStopping
+/// - Tick listeners: addTickListener for periodic logic
+void registerEventHandlers() {
+  // Welcome message when players join
+  Events.onPlayerJoin((player) {
+    player.sendTitle(
+      'Welcome!',
+      subtitle: '{{project_name_title}}',
+      fadeIn: 10,
+      stay: 60,
+      fadeOut: 20,
+    );
+    player.sendMessage('Type /hello to get started!');
   });
+
+  // Custom death messages
+  Events.onPlayerDeath = (player, damageSource) {
+    if (damageSource.contains('fall')) {
+      return '${player.name} forgot to use feather falling!';
+    }
+    return null; // Use default death message
+  };
+
+  // Periodic tick listener (runs every tick - 20 times per second)
+  Events.addTickListener((tick) {
+    // Every 5 minutes (6000 ticks), send a reminder
+    if (tick > 0 && tick % 6000 == 0) {
+      for (final player in Players.getAllPlayers()) {
+        player.sendActionBar('{{project_name_title}} is running!');
+      }
+    }
+  });
+
+  print('Events: Registered 3 event handlers');
+}
+
+// =============================================================================
+// RECIPES
+// =============================================================================
+
+/// Registers all crafting recipes.
+///
+/// Recipe types:
+/// - Recipes.shaped() - Crafting table with specific pattern
+/// - Recipes.shapeless() - Crafting with any arrangement
+/// - Recipes.smelting() - Furnace recipes
+void registerRecipes() {
+  // Shaped recipe: HelloBlock from stone + diamonds
+  Recipes.shaped(
+    '{{project_name}}:hello_block',
+    pattern: [
+      'DSD',
+      'SDS',
+      'DSD',
+    ],
+    keys: {
+      'D': 'minecraft:diamond',
+      'S': 'minecraft:stone',
+    },
+    result: '{{project_name}}:hello_block',
+  );
+
+  // Shapeless recipe: HelloWand from stick + emerald
+  Recipes.shapeless(
+    '{{project_name}}:hello_wand',
+    ingredients: ['minecraft:stick', 'minecraft:emerald'],
+    result: '{{project_name}}:hello_wand',
+  );
+
+  print('Recipes: Registered 2 custom recipes');
+}
+
+// =============================================================================
+// LOOT TABLES
+// =============================================================================
+
+/// Registers loot table modifications.
+///
+/// LootTables API allows modifying vanilla and modded loot tables:
+/// - LootTables.modify() to add items to existing tables
+/// - builder.addItem() for simple drops with chance
+/// - builder.addItemWithFunctions() for drops with count/looting
+void registerLootTables() {
+  // Zombies have 10% chance to drop HelloWand
+  LootTables.modify('minecraft:entities/zombie', (builder) {
+    builder.addItem(
+      '{{project_name}}:hello_wand',
+      chance: 0.10,
+      minCount: 1,
+      maxCount: 1,
+    );
+  });
+
+  print('LootTables: Added 1 loot table modification');
 }
