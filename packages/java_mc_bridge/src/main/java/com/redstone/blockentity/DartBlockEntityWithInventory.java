@@ -1,18 +1,22 @@
 package com.redstone.blockentity;
 
+import com.redstone.DartBridge;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.ContainerUser;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
@@ -20,16 +24,18 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.redstone.DartBridge;
 
 /**
- * Block entity with inventory support.
+ * Block entity with inventory and ContainerData support.
  *
  * Extends AnimatedBlockEntity with Container and WorldlyContainer implementations
  * for hopper/pipe interaction. By extending AnimatedBlockEntity, all container
  * blocks inherit animation support (even if not used).
+ *
+ * ContainerData is managed dynamically, calling into Dart via DartBridge for
+ * get/set operations. This allows mods to define any processing logic in Dart.
  */
-public class DartBlockEntityWithInventory extends AnimatedBlockEntity implements Container, WorldlyContainer, MenuProvider {
+public class DartBlockEntityWithInventory extends AnimatedBlockEntity implements Container, WorldlyContainer, ExtendedScreenHandlerFactory<DartBlockEntityMenu.MenuConfig> {
     private static final Logger LOGGER = LoggerFactory.getLogger("DartBlockEntityWithInventory");
 
     /** Inventory slots. */
@@ -41,17 +47,63 @@ public class DartBlockEntityWithInventory extends AnimatedBlockEntity implements
     /** Display name for the container. */
     protected Component displayName;
 
+    /** Number of data slots for ContainerData synchronization. */
+    protected final int dataSlotCount;
+
+    /** ContainerData for syncing state to client GUI. */
+    protected final ContainerData containerData;
+
     public DartBlockEntityWithInventory(BlockEntityType<?> type, BlockPos pos, BlockState state,
-                                        int handlerId, int inventorySize, Component displayName) {
+                                        int handlerId, int inventorySize, Component displayName,
+                                        int dataSlotCount) {
         super(type, pos, state, handlerId);
         this.items = NonNullList.withSize(inventorySize, ItemStack.EMPTY);
         this.displayName = displayName;
+        this.dataSlotCount = dataSlotCount;
 
         // Create array of all slot indices
         this.allSlots = new int[inventorySize];
         for (int i = 0; i < inventorySize; i++) {
             this.allSlots[i] = i;
         }
+
+        // Create ContainerData with dynamic slot count that delegates to Dart
+        this.containerData = new ContainerData() {
+            @Override
+            public int get(int index) {
+                if (DartBridge.isInitialized()) {
+                    try {
+                        return DartBridge.getBlockEntityDataSlot(
+                            DartBlockEntityWithInventory.this.handlerId,
+                            DartBlockEntityWithInventory.this.blockPosHash,
+                            index);
+                    } catch (Exception e) {
+                        LOGGER.warn("Error getting data slot {}: {}", index, e.getMessage());
+                    }
+                }
+                return 0;
+            }
+
+            @Override
+            public void set(int index, int value) {
+                if (DartBridge.isInitialized()) {
+                    try {
+                        DartBridge.setBlockEntityDataSlot(
+                            DartBlockEntityWithInventory.this.handlerId,
+                            DartBlockEntityWithInventory.this.blockPosHash,
+                            index,
+                            value);
+                    } catch (Exception e) {
+                        LOGGER.warn("Error setting data slot {}: {}", index, e.getMessage());
+                    }
+                }
+            }
+
+            @Override
+            public int getCount() {
+                return DartBlockEntityWithInventory.this.dataSlotCount;
+            }
+        };
     }
 
     // ========================================================================
@@ -174,8 +226,42 @@ public class DartBlockEntityWithInventory extends AnimatedBlockEntity implements
         return true;
     }
 
+    /**
+     * Check if an item can be placed in a specific slot.
+     * Framework default: allow all items in all slots.
+     * Subclasses or Dart callbacks can override for slot-specific logic.
+     *
+     * @param slot The slot index
+     * @param stack The item stack to check
+     * @return true if the item can be placed in the slot
+     */
+    @Override
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        // Default implementation allows all items in all slots
+        // TODO: Could delegate to Dart via DartBridge callback if needed
+        return true;
+    }
+
     // ========================================================================
-    // MenuProvider implementation
+    // ContainerData support
+    // ========================================================================
+
+    /**
+     * Get the ContainerData for menu synchronization.
+     */
+    public ContainerData getContainerData() {
+        return containerData;
+    }
+
+    /**
+     * Get the number of data slots.
+     */
+    public int getDataSlotCount() {
+        return dataSlotCount;
+    }
+
+    // ========================================================================
+    // ExtendedScreenHandlerFactory implementation
     // ========================================================================
 
     @Override
@@ -185,8 +271,43 @@ public class DartBlockEntityWithInventory extends AnimatedBlockEntity implements
 
     @Override
     public @Nullable AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        // Subclasses should override this to provide their specific menu
-        return null;
+        return new DartBlockEntityMenu(containerId, playerInventory, this, this.containerData);
+    }
+
+    /**
+     * Provides the MenuConfig data to be sent to the client when opening this container.
+     * This is required by ExtendedScreenHandlerFactory to properly serialize
+     * the inventory size and data slot count for client-side menu construction.
+     *
+     * @param player The server player opening the menu
+     * @return MenuConfig containing inventory size and data slot count
+     */
+    @Override
+    public DartBlockEntityMenu.MenuConfig getScreenOpeningData(ServerPlayer player) {
+        return new DartBlockEntityMenu.MenuConfig(getContainerSize(), dataSlotCount);
+    }
+
+    // ========================================================================
+    // Tick handling
+    // ========================================================================
+
+    /**
+     * Server tick method - called each game tick for this block entity.
+     * Delegates to Dart for processing logic.
+     */
+    public static void serverTick(Level level, BlockPos pos, BlockState state,
+                                  DartBlockEntityWithInventory blockEntity) {
+        if (level.isClientSide()) {
+            return;
+        }
+
+        if (DartBridge.isInitialized()) {
+            try {
+                DartBridge.onBlockEntityTick(blockEntity.handlerId, blockEntity.blockPosHash);
+            } catch (Exception e) {
+                LOGGER.error("Error during block entity tick: {}", e.getMessage());
+            }
+        }
     }
 
     // ========================================================================

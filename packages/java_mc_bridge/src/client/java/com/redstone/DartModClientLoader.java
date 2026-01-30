@@ -638,14 +638,14 @@ public class DartModClientLoader implements ClientModInitializer {
         }
 
         // Register AnimatedBlockRenderer for container block entity types that have animations
-        // Since DartProcessingBlockEntity now extends AnimatedBlockEntity, we can use
+        // Since DartBlockEntityWithInventory extends AnimatedBlockEntity, we can use
         // AnimatedBlockRenderer for animated containers too.
         for (String blockId : DartBlockEntityType.getAllBlockIds()) {
             if (AnimationRegistry.hasAnimation(blockId)) {
                 var type = DartBlockEntityType.getType(blockId);
                 if (type != null) {
-                    // Note: The type is BlockEntityType<DartProcessingBlockEntity>, but since
-                    // DartProcessingBlockEntity extends AnimatedBlockEntity, this cast is safe.
+                    // Note: The type is BlockEntityType<DartBlockEntityWithInventory>, but since
+                    // DartBlockEntityWithInventory extends AnimatedBlockEntity, this cast is safe.
                     @SuppressWarnings("unchecked")
                     var animType = (net.minecraft.world.level.block.entity.BlockEntityType<AnimatedBlockEntity>) (Object) type;
                     BlockEntityRenderers.register(animType, AnimatedBlockRenderer::new);

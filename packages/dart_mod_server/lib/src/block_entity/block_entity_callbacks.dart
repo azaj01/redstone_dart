@@ -128,9 +128,7 @@ void _onBlockEntityTick(int handlerId, int blockPosHash) {
 int _onBlockEntityGetDataSlot(int handlerId, int blockPosHash, int index) {
   try {
     final instance = BlockEntityRegistry.get(handlerId, blockPosHash);
-    if (instance is ProcessingBlockEntity) {
-      return instance.getDataSlot(index);
-    } else if (instance is ContainerBlockEntity) {
+    if (instance is ContainerBlockEntity) {
       return instance.getDataSlot(index);
     }
     return 0;
@@ -145,9 +143,7 @@ int _onBlockEntityGetDataSlot(int handlerId, int blockPosHash, int index) {
 void _onBlockEntitySetDataSlot(int handlerId, int blockPosHash, int index, int value) {
   try {
     final instance = BlockEntityRegistry.get(handlerId, blockPosHash);
-    if (instance is ProcessingBlockEntity) {
-      instance.setDataSlot(index, value);
-    } else if (instance is ContainerBlockEntity) {
+    if (instance is ContainerBlockEntity) {
       instance.setDataSlot(index, value);
     }
   } catch (e, stack) {

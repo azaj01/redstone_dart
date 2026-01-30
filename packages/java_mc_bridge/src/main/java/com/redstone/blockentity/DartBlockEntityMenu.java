@@ -1,6 +1,8 @@
 package com.redstone.blockentity;
 
 import com.redstone.RedstoneMenuTypes;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -26,17 +28,40 @@ import org.slf4j.LoggerFactory;
  * block entity is a chest, furnace, or any other type. All UI rendering
  * and slot semantics are handled by Flutter/Dart.
  *
+ * Uses {@link MenuConfig} with ExtendedScreenHandlerType to pass configuration
+ * from server to client, avoiding hardcoded sizes.
+ *
  * Implements {@link DartMenuProvider} to support unified ContainerData access
  * from client-side caching code.
  */
 public class DartBlockEntityMenu extends AbstractContainerMenu implements DartMenuProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger("DartBlockEntityMenu");
 
+    /**
+     * Configuration record passed from server to client via ExtendedScreenHandlerType.
+     * Contains the actual inventory size and data slot count for correct client-side construction.
+     */
+    public record MenuConfig(int inventorySize, int dataSlotCount) {
+        public static final StreamCodec<RegistryFriendlyByteBuf, MenuConfig> STREAM_CODEC = StreamCodec.of(
+            (buf, config) -> {
+                buf.writeVarInt(config.inventorySize);
+                buf.writeVarInt(config.dataSlotCount);
+            },
+            buf -> new MenuConfig(buf.readVarInt(), buf.readVarInt())
+        );
+    }
+
     /** Standard number of columns in the grid (like a chest). */
     private static final int COLUMNS = 9;
 
     /** Standard container width in pixels. */
     private static final int IMAGE_WIDTH = 176;
+
+    /** Player main inventory size (3 rows * 9 columns). */
+    private static final int PLAYER_INVENTORY_SIZE = 27;
+
+    /** Player hotbar size (1 row * 9 columns). */
+    private static final int HOTBAR_SIZE = 9;
 
     /** The block entity's container (inventory). */
     private final Container container;
@@ -64,12 +89,18 @@ public class DartBlockEntityMenu extends AbstractContainerMenu implements DartMe
     // ========================================================================
 
     /**
-     * Client-side constructor - creates with empty container and data.
-     * Called when the client receives the menu packet from the server.
-     * Default to 3 rows * 9 columns (27 slots) like a standard chest.
+     * Client-side constructor - creates with empty container and data based on config.
+     * Called when the client receives the menu packet from the server via ExtendedScreenHandlerType.
+     * The config contains the actual inventory size and data slot count from the server.
+     *
+     * @param containerId The container ID assigned by the server
+     * @param playerInventory The player's inventory
+     * @param config Configuration containing inventory size and data slot count
      */
-    public DartBlockEntityMenu(int containerId, Inventory playerInventory) {
-        this(containerId, playerInventory, new SimpleContainer(27), new SimpleContainerData(4));
+    public DartBlockEntityMenu(int containerId, Inventory playerInventory, MenuConfig config) {
+        this(containerId, playerInventory,
+             new SimpleContainer(config.inventorySize()),
+             new SimpleContainerData(config.dataSlotCount()));
     }
 
     /**
@@ -90,8 +121,6 @@ public class DartBlockEntityMenu extends AbstractContainerMenu implements DartMe
         this.containerSlotCount = inventorySize;
 
         checkContainerSize(container, inventorySize);
-        // Use the data's own count for flexibility
-        checkContainerDataCount(data, data.getCount());
 
         this.container = container;
         this.data = data;
@@ -99,9 +128,9 @@ public class DartBlockEntityMenu extends AbstractContainerMenu implements DartMe
 
         // Calculate slot index ranges for quick move
         this.invSlotStart = containerSlotCount;
-        this.invSlotEnd = containerSlotCount + 27; // 3 rows * 9 columns
+        this.invSlotEnd = containerSlotCount + PLAYER_INVENTORY_SIZE;
         this.hotbarSlotStart = invSlotEnd;
-        this.hotbarSlotEnd = hotbarSlotStart + 9;
+        this.hotbarSlotEnd = hotbarSlotStart + HOTBAR_SIZE;
 
         // Calculate slot positions to center the grid
         // Standard slot is 18x18 pixels

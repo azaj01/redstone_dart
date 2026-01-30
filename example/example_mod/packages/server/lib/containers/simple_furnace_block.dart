@@ -70,5 +70,5 @@ class SimpleFurnaceBlock extends CustomBlock {
 
   // Note: The block entity handles opening the container automatically.
   // When DartBlockWithEntity's useWithoutItem is called, it opens the
-  // MenuProvider (ProcessingBlockEntity) for the player.
+  // MenuProvider (ContainerBlockEntity) for the player.
 }

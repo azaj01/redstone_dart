@@ -25,11 +25,8 @@ class SimpleFurnaceEntity
     extends ContainerBlockEntity<SimpleFurnaceContainer> {
   SimpleFurnaceEntity() : super(container: SimpleFurnaceContainer());
 
-  int _tickCount = 0;
-
   @override
   void serverTick() {
-    _tickCount++;
 
     // Check if we can smelt
     final input = getSlot(SimpleFurnaceContainer.inputSlot);

@@ -113,15 +113,12 @@ class BlockEntityRegistry {
     String containerTitle = blockId;
     int dataSlotCount = 0;
 
-    if (tempInstance.settings is ProcessingSettings) {
-      final ps = tempInstance.settings as ProcessingSettings;
-      inventorySize = ps.slots.totalSlots;
-      containerTitle = blockId.split(':').last.replaceAll('_', ' ');
-      // Capitalize first letter of each word
-      containerTitle = containerTitle.split(' ')
-          .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
-          .join(' ');
-    }
+    // Generate a default container title from the block ID
+    containerTitle = blockId.split(':').last.replaceAll('_', ' ');
+    // Capitalize first letter of each word
+    containerTitle = containerTitle.split(' ')
+        .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
+        .join(' ');
 
     // Extract dataSlotCount from ContainerBlockEntity
     if (tempInstance is ContainerBlockEntity) {

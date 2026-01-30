@@ -21,6 +21,9 @@ import java.util.Map;
 public class FlutterDisplayBlockEntityType {
     private static final Logger LOGGER = LoggerFactory.getLogger("FlutterDisplayBlockEntityType");
 
+    /** Suffix appended to block path for flutter display entity type ID. */
+    private static final String FLUTTER_DISPLAY_ENTITY_SUFFIX = "_flutter_display_entity";
+
     /**
      * Map of block ID to its BlockEntityType.
      */
@@ -32,6 +35,7 @@ public class FlutterDisplayBlockEntityType {
      * @param blockId The full block ID (namespace:path)
      * @param block The Block instance to associate with this type
      * @return The registered BlockEntityType
+     * @throws IllegalArgumentException if blockId does not contain ':'
      */
     public static BlockEntityType<FlutterDisplayBlockEntity> registerForBlock(String blockId, Block block) {
         if (TYPES.containsKey(blockId)) {
@@ -39,10 +43,15 @@ public class FlutterDisplayBlockEntityType {
             return TYPES.get(blockId);
         }
 
+        // Validate block ID format
+        if (!blockId.contains(":")) {
+            throw new IllegalArgumentException("Invalid block ID: " + blockId + " (expected format: namespace:path)");
+        }
+
         // Parse block ID into namespace and path
         String[] parts = blockId.split(":");
         String namespace = parts[0];
-        String path = parts[1] + "_flutter_display_entity";
+        String path = parts[1] + FLUTTER_DISPLAY_ENTITY_SUFFIX;
 
         LOGGER.info("Registering FlutterDisplayBlockEntityType for {}", blockId);
 

@@ -6,7 +6,6 @@ import 'dart:convert';
 import '../item/item.dart';
 import '../item/item_stack.dart';
 import '../jni/generic_bridge.dart';
-import 'block_entity_settings.dart';
 import 'ticking_block_entity.dart';
 
 /// Callback type for reading inventory slot from Java via JNI.
@@ -68,21 +67,12 @@ abstract class BlockEntityWithInventory extends TickingBlockEntity {
 
   /// Creates a block entity with the specified number of inventory slots.
   ///
-  /// If [slotCount] is not provided, it will be derived from [ProcessingSettings.slots.totalSlots]
-  /// if the settings is a [ProcessingSettings], otherwise defaults to 0.
+  /// [slotCount] is required to explicitly specify the number of inventory slots.
   BlockEntityWithInventory({
     required super.settings,
-    int? slotCount,
+    required int slotCount,
   }) {
-    final count = slotCount ?? _deriveSlotCount();
-    _inventory = List.filled(count, ItemStack.empty);
-  }
-
-  int _deriveSlotCount() {
-    if (settings is ProcessingSettings) {
-      return (settings as ProcessingSettings).slots.totalSlots;
-    }
-    return 0;
+    _inventory = List.filled(slotCount, ItemStack.empty);
   }
 
   /// The number of slots in this inventory.

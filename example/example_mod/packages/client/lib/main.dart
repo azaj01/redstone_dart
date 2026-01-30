@@ -95,7 +95,7 @@ class MinecraftGuiApp extends StatelessWidget {
               screenBuilder: (context) => const SimpleFurnaceScreen(),
               cacheSlotPositions: true,
             ),
-            // ExampleFurnace - ProcessingBlockEntity-based furnace
+            // ExampleFurnace - Container API-based furnace
             GuiRoute(
               title: 'Example Furnace',
               containerBuilder: () => ExampleFurnaceContainer(),

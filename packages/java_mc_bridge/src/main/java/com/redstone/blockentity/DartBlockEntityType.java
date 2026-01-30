@@ -24,11 +24,14 @@ import java.util.Map;
 public class DartBlockEntityType {
     private static final Logger LOGGER = LoggerFactory.getLogger("DartBlockEntityType");
 
+    /** Suffix appended to block path for entity type ID. */
+    private static final String ENTITY_SUFFIX = "_entity";
+
     /**
      * Map of block ID (e.g., "mymod:furnace") to its BlockEntityType.
      * Each block with a block entity gets its own type.
      */
-    private static final Map<String, BlockEntityType<DartProcessingBlockEntity>> TYPES = new HashMap<>();
+    private static final Map<String, BlockEntityType<DartBlockEntityWithInventory>> TYPES = new HashMap<>();
 
     /**
      * Register a BlockEntityType for a specific block.
@@ -42,8 +45,9 @@ public class DartBlockEntityType {
      * @param containerTitle Display title for the container
      * @param dataSlotCount Number of data slots for ContainerData synchronization
      * @return The registered BlockEntityType
+     * @throws IllegalArgumentException if blockId does not contain ':'
      */
-    public static BlockEntityType<DartProcessingBlockEntity> registerForBlock(
+    public static BlockEntityType<DartBlockEntityWithInventory> registerForBlock(
             String blockId,
             Block block,
             int handlerId,
@@ -56,23 +60,28 @@ public class DartBlockEntityType {
             return TYPES.get(blockId);
         }
 
+        // Validate block ID format
+        if (!blockId.contains(":")) {
+            throw new IllegalArgumentException("Invalid block ID: " + blockId + " (expected format: namespace:path)");
+        }
+
         // Parse block ID into namespace and path
         String[] parts = blockId.split(":");
         String namespace = parts[0];
-        String path = parts[1] + "_entity";
+        String path = parts[1] + ENTITY_SUFFIX;
 
         LOGGER.info("Registering BlockEntityType for {} (handler={}, inventory={}, dataSlotCount={})",
             blockId, handlerId, inventorySize, dataSlotCount);
 
         // Create the BlockEntityType with this specific block
         // We need to use a holder for the type reference in the factory lambda
-        final BlockEntityType<DartProcessingBlockEntity>[] typeHolder = new BlockEntityType[1];
+        final BlockEntityType<DartBlockEntityWithInventory>[] typeHolder = new BlockEntityType[1];
 
-        BlockEntityType<DartProcessingBlockEntity> type = Registry.register(
+        BlockEntityType<DartBlockEntityWithInventory> type = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Identifier.fromNamespaceAndPath(namespace, path),
             FabricBlockEntityTypeBuilder.create(
-                (pos, state) -> new DartProcessingBlockEntity(
+                (pos, state) -> new DartBlockEntityWithInventory(
                     typeHolder[0],
                     pos,
                     state,
@@ -98,7 +107,7 @@ public class DartBlockEntityType {
      * @param blockId The full block ID (namespace:path)
      * @return The BlockEntityType, or null if not registered
      */
-    public static BlockEntityType<DartProcessingBlockEntity> getType(String blockId) {
+    public static BlockEntityType<DartBlockEntityWithInventory> getType(String blockId) {
         return TYPES.get(blockId);
     }
 
@@ -129,7 +138,7 @@ public class DartBlockEntityType {
     /**
      * Get all registered block entity types.
      */
-    public static Iterable<BlockEntityType<DartProcessingBlockEntity>> getAllTypes() {
+    public static Iterable<BlockEntityType<DartBlockEntityWithInventory>> getAllTypes() {
         return TYPES.values();
     }
 

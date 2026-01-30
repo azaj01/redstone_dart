@@ -1,68 +1,42 @@
 /// Settings classes for block entities.
 library;
 
-/// Base settings for block entities.
+/// Base settings for all block entities.
+///
+/// This class provides the core configuration needed to register a block entity
+/// with the Minecraft/Java bridge. Block entities are special blocks that can
+/// store additional data (like inventories, processing state, etc.) beyond
+/// what the block state provides.
+///
+/// ## ID Format
+///
+/// The [id] must follow Minecraft's resource location format: `namespace:path`
+///
+/// - **namespace**: Your mod's identifier (e.g., `my_mod`, `redstone`)
+/// - **path**: The specific block entity name (e.g., `furnace`, `chest`)
+///
+/// Examples:
+/// - `my_mod:custom_furnace`
+/// - `redstone:dart_container`
+/// - `minecraft:chest` (vanilla format, but use your own namespace)
+///
+/// ## Usage
+///
+/// ```dart
+/// final settings = BlockEntitySettings(id: 'my_mod:my_furnace');
+/// ```
+///
+/// For block entities with inventories, use [BlockEntityWithInventorySettings].
+/// For block entities with data synchronization, use [BlockEntityWithContainerDataSettings].
 class BlockEntitySettings {
-  /// The unique identifier for this block entity type (e.g., 'mymod:my_furnace').
+  /// The unique identifier for this block entity type.
+  ///
+  /// Must be in the format `namespace:path` (e.g., `my_mod:my_furnace`).
+  /// This ID is used to:
+  /// - Register the block entity type with Minecraft
+  /// - Look up the block entity type when creating instances
+  /// - Serialize/deserialize block entity data
   final String id;
 
   const BlockEntitySettings({required this.id});
-}
-
-/// Slot configuration for container-style block entities.
-class SlotConfig {
-  /// The slot index for input items.
-  final int inputSlot;
-
-  /// The slot index for fuel items.
-  final int fuelSlot;
-
-  /// The slot index for output items.
-  final int outputSlot;
-
-  /// The total number of slots in the container.
-  final int totalSlots;
-
-  const SlotConfig({
-    required this.inputSlot,
-    required this.fuelSlot,
-    required this.outputSlot,
-    required this.totalSlots,
-  });
-
-  /// Standard furnace slot configuration:
-  /// - Slot 0: Input
-  /// - Slot 1: Fuel
-  /// - Slot 2: Output
-  const SlotConfig.furnace()
-      : inputSlot = 0,
-        fuelSlot = 1,
-        outputSlot = 2,
-        totalSlots = 3;
-
-  /// Custom configuration with only input and output (no fuel slot).
-  const SlotConfig.simple({
-    this.inputSlot = 0,
-    this.outputSlot = 1,
-    this.totalSlots = 2,
-  }) : fuelSlot = -1;
-}
-
-/// Settings for processing block entities (furnace-like).
-class ProcessingSettings extends BlockEntitySettings {
-  /// Block hardness for mining.
-  final double hardness;
-
-  /// Time in ticks to process one item (200 = 10 seconds).
-  final int processTime;
-
-  /// Slot configuration for this block entity.
-  final SlotConfig slots;
-
-  const ProcessingSettings({
-    required super.id,
-    this.hardness = 3.5,
-    this.processTime = 200,
-    this.slots = const SlotConfig.furnace(),
-  });
 }

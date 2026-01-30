@@ -2,14 +2,14 @@ import 'package:dart_mod_server/dart_mod_server.dart';
 
 /// Example furnace block with a block entity for processing items.
 ///
-/// This block uses the ProcessingBlockEntity system to provide furnace-like
-/// behavior. When right-clicked, it opens a furnace GUI with input, fuel,
-/// and output slots.
+/// This block uses the Container API with [ExampleFurnace] to provide
+/// furnace-like behavior. When right-clicked, it opens a furnace GUI
+/// with input, fuel, and output slots.
 ///
 /// The block entity handles:
 /// - Fuel burning and burn time tracking
 /// - Recipe processing (smelting ores, cooking food)
-/// - ContainerData sync to client for progress display
+/// - ContainerData sync to client for progress display via [ExampleFurnaceContainer]
 class ExampleFurnaceBlock extends CustomBlock {
   ExampleFurnaceBlock()
       : super(
@@ -26,5 +26,5 @@ class ExampleFurnaceBlock extends CustomBlock {
 
   // Note: The block entity handles opening the container automatically.
   // When DartBlockWithEntity's useWithoutItem is called, it opens the
-  // MenuProvider (DartProcessingBlockEntity) for the player.
+  // MenuProvider (ContainerBlockEntity) for the player.
 }

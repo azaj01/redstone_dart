@@ -6,7 +6,7 @@ import 'package:example_mod_common/example_mod_common.dart';
 import 'package:flutter/material.dart';
 import 'package:minecraft_ui/minecraft_ui.dart';
 
-/// Flutter screen for the ExampleFurnace container (ProcessingBlockEntity-based).
+/// Flutter screen for the ExampleFurnace container (Container API-based).
 ///
 /// Displays a furnace UI with:
 /// - Input slot (top)

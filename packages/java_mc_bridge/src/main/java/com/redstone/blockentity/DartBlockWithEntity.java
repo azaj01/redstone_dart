@@ -42,7 +42,7 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
     private final String blockId;
 
     /** Cached BlockEntityType for this block. */
-    private BlockEntityType<DartProcessingBlockEntity> blockEntityType;
+    private BlockEntityType<DartBlockEntityWithInventory> blockEntityType;
 
     /** Whether this block has an animation. */
     private final boolean hasAnimation;
@@ -63,7 +63,7 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
      * Get the BlockEntityType for this block.
      * Caches the result after first lookup.
      */
-    private BlockEntityType<DartProcessingBlockEntity> getBlockEntityType() {
+    private BlockEntityType<DartBlockEntityWithInventory> getBlockEntityType() {
         if (blockEntityType == null) {
             blockEntityType = DartBlockEntityType.getType(blockId);
             if (blockEntityType == null) {
@@ -79,7 +79,7 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
 
     @Override
     public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        BlockEntityType<DartProcessingBlockEntity> type = getBlockEntityType();
+        BlockEntityType<DartBlockEntityWithInventory> type = getBlockEntityType();
         if (type == null) {
             LOGGER.error("Cannot create block entity: no BlockEntityType for {}", blockId);
             return null;
@@ -89,7 +89,7 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
         BlockEntityRegistry.BlockEntityConfig config = BlockEntityRegistry.getConfig(blockId);
         int dataSlotCount = config != null ? config.dataSlotCount() : 0;
 
-        return new DartProcessingBlockEntity(
+        return new DartBlockEntityWithInventory(
             type,
             pos,
             state,
@@ -103,13 +103,13 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
     @Override
     public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                              BlockEntityType<T> type) {
-        BlockEntityType<DartProcessingBlockEntity> ourType = getBlockEntityType();
+        BlockEntityType<DartBlockEntityWithInventory> ourType = getBlockEntityType();
         if (ourType == null || type != ourType) {
             return null;
         }
 
         // For animated containers, we need both animation ticking AND server logic ticking
-        // Since DartProcessingBlockEntity now extends AnimatedBlockEntity (through DartBlockEntityWithInventory),
+        // Since DartBlockEntityWithInventory extends AnimatedBlockEntity,
         // we can tick it as an AnimatedBlockEntity for animation updates.
         if (hasAnimation) {
             // Check if server ticks are enabled for block entity logic
@@ -124,7 +124,7 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
                 // Server: both animation tick AND server logic tick
                 return (BlockEntityTicker<T>) (lvl, pos, st, be) -> {
                     AnimatedBlockEntity.tick(lvl, pos, st, (AnimatedBlockEntity) be);
-                    DartProcessingBlockEntity.serverTick(lvl, pos, st, (DartProcessingBlockEntity) be);
+                    DartBlockEntityWithInventory.serverTick(lvl, pos, st, (DartBlockEntityWithInventory) be);
                 };
             } else {
                 // Server: only animation tick (no server logic needed)
@@ -144,7 +144,7 @@ public class DartBlockWithEntity extends DartBlockProxy implements EntityBlock {
         }
 
         return (BlockEntityTicker<T>) (lvl, pos, st, be) ->
-            DartProcessingBlockEntity.serverTick(lvl, pos, st, (DartProcessingBlockEntity) be);
+            DartBlockEntityWithInventory.serverTick(lvl, pos, st, (DartBlockEntityWithInventory) be);
     }
 
     @Override

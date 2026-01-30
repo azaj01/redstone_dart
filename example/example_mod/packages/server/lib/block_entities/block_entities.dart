@@ -11,5 +11,12 @@ import 'example_furnace.dart';
 /// must be registered before the associated block.
 void registerBlockEntities() {
   // Register the example furnace block entity type
-  BlockEntityRegistry.registerTypeFromFactory(() => ExampleFurnace());
+  // Uses the new ContainerBlockEntity pattern
+  BlockEntityRegistry.registerType(
+    'example_mod:example_furnace',
+    ExampleFurnace.new,
+    inventorySize: 3,
+    containerTitle: 'Example Furnace',
+    ticks: true,
+  );
 }

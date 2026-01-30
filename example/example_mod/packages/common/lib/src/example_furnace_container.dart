@@ -8,7 +8,7 @@ import 'package:dart_mod_common/dart_mod_common.dart';
 /// This defines the structure of the furnace menu with 3 slots
 /// (input, fuel, output) and 4 synced values for client UI updates.
 ///
-/// Matches the server-side ExampleFurnace (ProcessingBlockEntity).
+/// Matches the server-side ExampleFurnace (ContainerBlockEntity).
 class ExampleFurnaceContainer extends ContainerDefinition {
   @override
   String get id => 'example_mod:example_furnace';
@@ -21,7 +21,7 @@ class ExampleFurnaceContainer extends ContainerDefinition {
   static const int fuelSlot = 1;
   static const int outputSlot = 2;
 
-  // Synced data (matching ProcessingBlockEntity indices)
+  // Synced data (matching ContainerDefinition pattern)
   /// Current burn time remaining (ticks). Index 0.
   final SyncedInt litTime = SyncedInt();
 

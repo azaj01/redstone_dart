@@ -21,6 +21,9 @@ import java.util.Map;
 public class AnimatedBlockEntityType {
     private static final Logger LOGGER = LoggerFactory.getLogger("AnimatedBlockEntityType");
 
+    /** Suffix appended to block path for animated entity type ID. */
+    private static final String ANIMATED_ENTITY_SUFFIX = "_animated_entity";
+
     /**
      * Map of block ID to its BlockEntityType.
      */
@@ -33,6 +36,7 @@ public class AnimatedBlockEntityType {
      * @param block The Block instance to associate with this type
      * @param handlerId The Dart handler ID for this block entity
      * @return The registered BlockEntityType
+     * @throws IllegalArgumentException if blockId does not contain ':'
      */
     public static BlockEntityType<AnimatedBlockEntity> registerForBlock(
             String blockId,
@@ -44,10 +48,15 @@ public class AnimatedBlockEntityType {
             return TYPES.get(blockId);
         }
 
+        // Validate block ID format
+        if (!blockId.contains(":")) {
+            throw new IllegalArgumentException("Invalid block ID: " + blockId + " (expected format: namespace:path)");
+        }
+
         // Parse block ID into namespace and path
         String[] parts = blockId.split(":");
         String namespace = parts[0];
-        String path = parts[1] + "_animated_entity";
+        String path = parts[1] + ANIMATED_ENTITY_SUFFIX;
 
         LOGGER.info("Registering AnimatedBlockEntityType for {} (handler={})", blockId, handlerId);
 

@@ -1,6 +1,7 @@
 package com.redstone;
 
 import com.redstone.blockentity.DartBlockEntityMenu;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -29,12 +30,13 @@ public class RedstoneMenuTypes {
     /**
      * Menu type for Dart block entity menus.
      * This is the unified menu type that handles all inventory sizes with a grid layout.
-     * Uses a simple constructor that creates empty container/data on client side.
+     * Uses ExtendedScreenHandlerType to pass MenuConfig (inventory size, data slot count)
+     * from server to client, avoiding hardcoded sizes.
      */
-    public static final MenuType<DartBlockEntityMenu> DART_BLOCK_ENTITY_MENU = Registry.register(
+    public static final ExtendedScreenHandlerType<DartBlockEntityMenu, DartBlockEntityMenu.MenuConfig> DART_BLOCK_ENTITY_MENU = Registry.register(
             BuiltInRegistries.MENU,
             Identifier.fromNamespaceAndPath(NAMESPACE, "dart_block_entity"),
-            new MenuType<>(DartBlockEntityMenu::new, FeatureFlags.VANILLA_SET)
+            new ExtendedScreenHandlerType<>(DartBlockEntityMenu::new, DartBlockEntityMenu.MenuConfig.STREAM_CODEC)
     );
 
     /**
