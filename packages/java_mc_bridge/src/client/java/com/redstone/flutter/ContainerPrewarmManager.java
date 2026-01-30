@@ -41,7 +41,13 @@ public class ContainerPrewarmManager {
     /** Timestamp when prewarm was started (for timing). */
     private static long prewarmStartTimeNanos = 0;
 
-    /** Set to true to disable prewarm for performance testing. */
+    /**
+     * Prewarm is currently disabled because the signal-based synchronization
+     * is fast enough (~2-3ms). If we need even faster container opening in the
+     * future, enable prewarm to render the container UI while the player is
+     * looking at the block (before they click). This would make opening instant
+     * since the correct frame is already rendered.
+     */
     private static final boolean PREWARM_DISABLED = true;
 
     /**

@@ -126,50 +126,59 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
         LOGGER.info("[PERF] dispatchContainerScreenOpen() took {}ms", (dispatchEndTime - dispatchStartTime) / 1_000_000.0);
         checkpointTime = dispatchEndTime;
 
-        // Wait for Dart to signal that setState is done, then wait for the frame to render.
-        // Two-phase wait:
-        // 1. Wait for signal (Dart has called setState with container UI)
-        // 2. Wait for hasNewFrame (Flutter has actually rendered the frame)
+        // Wait for Dart to signal that setState is done, then wait for a fresh frame.
+        //
+        // Key insight: After setState, we need to:
+        // 1. Wait for the signal (setState called)
+        // 2. Consume exactly ONE stale frame if present (the pre-setState frame)
+        // 3. Schedule and wait for ONE new frame (the post-setState frame)
+        //
+        // We DON'T drain all frames because that would wait for multiple render cycles.
         long frameWaitStartTime = System.nanoTime();
         DartBridgeClient.scheduleFrame();
 
-        int maxAttempts = 100; // ~100ms max wait
-        int attempts = 0;
+        int iterations = 0;
         boolean gotSignal = false;
+        boolean consumedStaleFrame = false;
+        boolean scheduledFreshFrame = false;
 
-        while (attempts < maxAttempts) {
+        long maxWaitNanos = 100_000_000L; // 100ms max wait
+        while ((System.nanoTime() - frameWaitStartTime) < maxWaitNanos) {
             DartBridgeClient.safeProcessClientTasks();
+            iterations++;
 
             // Phase 1: Wait for Dart to signal setState is done
             if (!gotSignal && DartBridgeClient.isContainerFrameReady()) {
                 gotSignal = true;
-                LOGGER.info("[PERF] Got container signal after {}ms ({} attempts)",
-                    (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, attempts);
-                // Now schedule another frame to ensure the widget tree is rendered
+                LOGGER.info("[PERF] Got container signal after {}ms ({} iterations)",
+                    (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, iterations);
+
+                // Consume ONE stale frame if immediately available
+                if (DartBridgeClient.hasNewFrame()) {
+                    consumedStaleFrame = true;
+                    LOGGER.info("[PERF] Consumed stale frame at {}ms",
+                        (System.nanoTime() - frameWaitStartTime) / 1_000_000.0);
+                }
+
+                // Schedule a fresh frame with the updated widget tree
                 DartBridgeClient.scheduleFrame();
+                scheduledFreshFrame = true;
             }
 
-            // Phase 2: Once we have the signal, wait for the frame to be rendered
-            if (gotSignal && DartBridgeClient.hasNewFrame() && DartBridgeClient.getFlutterTextureId() > 0) {
-                LOGGER.info("[PERF] Container frame rendered after {}ms ({} attempts)",
-                    (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, attempts);
+            // Phase 2: Once we have the signal and scheduled fresh frame, wait for it
+            if (scheduledFreshFrame && DartBridgeClient.hasNewFrame() && DartBridgeClient.getFlutterTextureId() > 0) {
+                LOGGER.info("[PERF] Fresh frame rendered after {}ms ({} iterations, consumedStale={})",
+                    (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, iterations, consumedStaleFrame);
                 break;
             }
-
-            try {
-                Thread.sleep(1); // 1ms per iteration
-            } catch (InterruptedException e) {
-                break;
-            }
-            attempts++;
         }
 
         // Clear the flag for next time
         DartBridgeClient.clearContainerFrameReady();
 
         long frameWaitEndTime = System.nanoTime();
-        LOGGER.info("[PERF] Frame wait loop: {}ms ({} attempts, prewarmed={})",
-            (frameWaitEndTime - frameWaitStartTime) / 1_000_000.0, attempts, prewarmed);
+        LOGGER.info("[PERF] Frame wait loop: {}ms (prewarmed={})",
+            (frameWaitEndTime - frameWaitStartTime) / 1_000_000.0, prewarmed);
         checkpointTime = frameWaitEndTime;
 
         long initEndTime = System.nanoTime();
