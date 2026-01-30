@@ -182,6 +182,18 @@ When testing in the dart_visual_test world (superflat):
 - Place blocks starting at Y=-60
 - Spawn entities at Y=-59 (one block above ground)
 
+### Block Center Coordinates
+
+**Important:** Integer coordinates (0, 1, 2, etc.) represent block edges/corners, not block centers. When using `lookAt` to look at a block, add 0.5 to each coordinate to target the center of the block:
+
+- Block at (10, -60, 20) → Look at (10.5, -59.5, 20.5) to see the center
+- Block at (0, 0, 0) → Look at (0.5, 0.5, 0.5) for the center
+
+This is especially important when:
+- Taking screenshots of specific blocks
+- Verifying block appearance visually
+- Positioning the camera to view block details
+
 ## Tips
 
 1. **Always wait after actions** - Use `waitTicks` after placing blocks, spawning entities, or any world modification
