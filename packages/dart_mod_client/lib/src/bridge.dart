@@ -79,6 +79,9 @@ class ClientBridge {
   static late final _ClientRegisterContainerOpenHandler _clientRegisterContainerOpenHandler;
   static late final _ClientRegisterContainerCloseHandler _clientRegisterContainerCloseHandler;
 
+  // Container frame ready signal
+  static late final _DartClientSignalContainerFrameReady _dartClientSignalContainerFrameReady;
+
   static void _bindFunctions() {
     final lib = _lib!;
 
@@ -215,6 +218,11 @@ class ClientBridge {
     _clientRegisterContainerCloseHandler = lib.lookupFunction<
         Void Function(Pointer<NativeFunction<_ContainerCloseCallbackNative>>),
         void Function(Pointer<NativeFunction<_ContainerCloseCallbackNative>>)>('client_register_container_close_handler');
+
+    // Container frame ready signal
+    _dartClientSignalContainerFrameReady = lib.lookupFunction<
+        Void Function(),
+        void Function()>('dart_client_signal_container_frame_ready');
   }
 
   // ==========================================================================
@@ -342,6 +350,18 @@ class ClientBridge {
   static void registerContainerCloseHandler(Pointer<NativeFunction<_ContainerCloseCallbackNative>> callback) {
     _clientRegisterContainerCloseHandler(callback);
   }
+
+  /// Signal that a container UI frame has been painted.
+  ///
+  /// This is called after setState + post-frame callback to tell Java
+  /// that the correct frame (with container UI) is now ready.
+  static void signalContainerFrameReady() {
+    if (!_initialized) {
+      print('[ClientBridge] Warning: signalContainerFrameReady called but bridge not initialized');
+      return;
+    }
+    _dartClientSignalContainerFrameReady();
+  }
 }
 
 // ==========================================================================
@@ -411,3 +431,6 @@ typedef _ContainerCloseCallbackNative = Void Function(Int32);
 // Callback registration typedefs
 typedef _ClientRegisterContainerOpenHandler = void Function(Pointer<NativeFunction<_ContainerOpenCallbackNative>>);
 typedef _ClientRegisterContainerCloseHandler = void Function(Pointer<NativeFunction<_ContainerCloseCallbackNative>>);
+
+// Container frame ready signal typedef
+typedef _DartClientSignalContainerFrameReady = void Function();

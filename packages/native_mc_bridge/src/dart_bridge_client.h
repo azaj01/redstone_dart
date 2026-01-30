@@ -260,4 +260,19 @@ int32_t dart_client_get_frame_height();
 // Used to pre-warm Flutter before opening screens.
 void dart_client_schedule_frame();
 
+// ==========================================================================
+// Container Frame Ready Signal
+// ==========================================================================
+// These functions allow Dart to signal when a container UI frame has been
+// painted, so Java can wait for the correct frame (not just any frame).
+
+// Called from Dart after container UI frame is painted
+void dart_client_signal_container_frame_ready();
+
+// Check if container frame is ready (does not clear the flag)
+bool dart_client_is_container_frame_ready();
+
+// Clear the container frame ready flag (call after consuming)
+void dart_client_clear_container_frame_ready();
+
 } // extern "C"

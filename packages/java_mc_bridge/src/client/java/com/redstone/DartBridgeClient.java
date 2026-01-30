@@ -132,6 +132,36 @@ public class DartBridgeClient {
     public static native void scheduleFrame();
 
     // ==========================================================================
+    // Container Frame Ready Signal
+    // ==========================================================================
+
+    /**
+     * Signal that the container UI frame is ready.
+     * Called from Dart via JNI after setState has been called.
+     */
+    public static native void nativeSignalContainerFrameReady();
+
+    /**
+     * Called by Dart (via GenericJniBridge) to signal container frame ready.
+     * This is a wrapper that calls the native method.
+     */
+    public static void signalContainerFrameReady() {
+        nativeSignalContainerFrameReady();
+    }
+
+    /**
+     * Check if Dart has signaled that a container UI frame is ready.
+     * This is set by Dart after the container UI has been painted.
+     */
+    public static native boolean isContainerFrameReady();
+
+    /**
+     * Clear the container frame ready flag after consuming it.
+     * Call this after you've used the frame to reset for next container open.
+     */
+    public static native void clearContainerFrameReady();
+
+    // ==========================================================================
     // OpenGL Rendering Native Methods
     // ==========================================================================
 

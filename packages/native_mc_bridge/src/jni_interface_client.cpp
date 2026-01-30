@@ -530,6 +530,42 @@ JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_scheduleFrame(
 
 /*
  * Class:     com_redstone_DartBridgeClient
+ * Method:    nativeSignalContainerFrameReady
+ * Signature: ()V
+ *
+ * Signal that the container UI frame is ready (called from Dart via JNI).
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_nativeSignalContainerFrameReady(
+    JNIEnv* /* env */, jclass /* cls */) {
+    dart_client_signal_container_frame_ready();
+}
+
+/*
+ * Class:     com_redstone_DartBridgeClient
+ * Method:    isContainerFrameReady
+ * Signature: ()Z
+ *
+ * Check if Dart has signaled that a container UI frame is ready.
+ */
+JNIEXPORT jboolean JNICALL Java_com_redstone_DartBridgeClient_isContainerFrameReady(
+    JNIEnv* /* env */, jclass /* cls */) {
+    return dart_client_is_container_frame_ready() ? JNI_TRUE : JNI_FALSE;
+}
+
+/*
+ * Class:     com_redstone_DartBridgeClient
+ * Method:    clearContainerFrameReady
+ * Signature: ()V
+ *
+ * Clear the container frame ready flag after consuming it.
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridgeClient_clearContainerFrameReady(
+    JNIEnv* /* env */, jclass /* cls */) {
+    dart_client_clear_container_frame_ready();
+}
+
+/*
+ * Class:     com_redstone_DartBridgeClient
  * Method:    nativeDispatchContainerDataChanged
  * Signature: (III)V
  *

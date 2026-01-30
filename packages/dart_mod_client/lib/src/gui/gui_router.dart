@@ -236,6 +236,20 @@ class _GuiRouterState extends State<GuiRouter> {
       print('[PERF][Dart] setState() took ${(setStateEnd - setStateStart) / 1000.0}ms');
     }
 
+    // Signal Java immediately that setState has been called.
+    // Java will then pump tasks until a frame is rendered.
+    // The signal tells Java "the widget tree is now set to container UI",
+    // so the NEXT frame that renders will be the correct one.
+    // Use JNI (not FFI) because we're running inside the Flutter embedder.
+    final signalTime = DateTime.now().microsecondsSinceEpoch;
+    print('[PERF][Dart] Signaling container frame ready at ${(signalTime - openStartTime) / 1000.0}ms');
+    GenericJniBridge.callStaticVoidMethod(
+      'com/redstone/DartBridgeClient',
+      'signalContainerFrameReady',
+      '()V',
+      [],
+    );
+
     final totalTime = (DateTime.now().microsecondsSinceEpoch - openStartTime) / 1000.0;
     print('[PERF][Dart] ========================================');
     print('[PERF][Dart] _onContainerOpen TOTAL: ${totalTime}ms (wasPrewarming=$wasPrewarming)');

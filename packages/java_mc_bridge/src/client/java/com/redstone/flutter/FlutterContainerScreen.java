@@ -115,6 +115,10 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
             ContainerPrewarmManager.clearPrewarm();
         }
 
+        // Clear the container frame ready flag before dispatching
+        // This ensures we wait for the NEW frame, not a stale signal
+        DartBridgeClient.clearContainerFrameReady();
+
         // Notify Dart that container is opening
         long dispatchStartTime = System.nanoTime();
         DartBridgeClient.dispatchContainerScreenOpen(menu.containerId, menu.slots.size(), containerId, titleStr);
@@ -122,21 +126,32 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
         LOGGER.info("[PERF] dispatchContainerScreenOpen() took {}ms", (dispatchEndTime - dispatchStartTime) / 1_000_000.0);
         checkpointTime = dispatchEndTime;
 
-        // ALWAYS wait for a valid Flutter frame before returning from init().
-        // This guarantees the first render() call has content to display.
-        // Prewarm already rendered at the same screen size, so we just need to
-        // wait for the frame to be available (no dimension check needed).
+        // Wait for Dart to signal that setState is done, then wait for the frame to render.
+        // Two-phase wait:
+        // 1. Wait for signal (Dart has called setState with container UI)
+        // 2. Wait for hasNewFrame (Flutter has actually rendered the frame)
         long frameWaitStartTime = System.nanoTime();
         DartBridgeClient.scheduleFrame();
 
-        int maxAttempts = prewarmed ? 10 : 100; // Very short wait if prewarmed (frame is already ready)
+        int maxAttempts = 100; // ~100ms max wait
         int attempts = 0;
+        boolean gotSignal = false;
+
         while (attempts < maxAttempts) {
             DartBridgeClient.safeProcessClientTasks();
 
-            // Check if Flutter has a valid frame ready
-            if (DartBridgeClient.hasNewFrame() && DartBridgeClient.getFlutterTextureId() > 0) {
-                LOGGER.info("[PERF] Frame ready after {}ms ({} attempts)",
+            // Phase 1: Wait for Dart to signal setState is done
+            if (!gotSignal && DartBridgeClient.isContainerFrameReady()) {
+                gotSignal = true;
+                LOGGER.info("[PERF] Got container signal after {}ms ({} attempts)",
+                    (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, attempts);
+                // Now schedule another frame to ensure the widget tree is rendered
+                DartBridgeClient.scheduleFrame();
+            }
+
+            // Phase 2: Once we have the signal, wait for the frame to be rendered
+            if (gotSignal && DartBridgeClient.hasNewFrame() && DartBridgeClient.getFlutterTextureId() > 0) {
+                LOGGER.info("[PERF] Container frame rendered after {}ms ({} attempts)",
                     (System.nanoTime() - frameWaitStartTime) / 1_000_000.0, attempts);
                 break;
             }
@@ -148,6 +163,9 @@ public class FlutterContainerScreen<T extends AbstractContainerMenu> extends Flu
             }
             attempts++;
         }
+
+        // Clear the flag for next time
+        DartBridgeClient.clearContainerFrameReady();
 
         long frameWaitEndTime = System.nanoTime();
         LOGGER.info("[PERF] Frame wait loop: {}ms ({} attempts, prewarmed={})",

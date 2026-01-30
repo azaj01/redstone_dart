@@ -41,11 +41,19 @@ public class ContainerPrewarmManager {
     /** Timestamp when prewarm was started (for timing). */
     private static long prewarmStartTimeNanos = 0;
 
+    /** Set to true to disable prewarm for performance testing. */
+    private static final boolean PREWARM_DISABLED = true;
+
     /**
      * Called every client tick to check what the player is looking at.
      * If looking at a container block, trigger pre-warm.
      */
     public static void tick() {
+        // Temporarily disable prewarm for performance testing
+        if (PREWARM_DISABLED) {
+            return;
+        }
+
         // Don't run if client isn't initialized
         if (!DartBridgeClient.isClientInitialized()) {
             return;

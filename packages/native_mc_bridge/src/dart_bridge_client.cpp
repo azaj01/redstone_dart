@@ -127,6 +127,13 @@ static int32_t g_metal_frame_height = 0;
 #endif // METAL_SUPPORTED
 
 // ==========================================================================
+// Container Frame Ready Signal
+// ==========================================================================
+// This flag is set by Dart after a container UI frame has been painted.
+// Java waits for this flag to ensure the correct frame is displayed.
+static std::atomic<bool> g_container_frame_ready{false};
+
+// ==========================================================================
 // Client Callback Registry (separate from server)
 // ==========================================================================
 
@@ -1732,6 +1739,22 @@ int32_t dart_client_get_frame_height() {
 void dart_client_schedule_frame() {
     if (!g_client_initialized || g_client_engine == nullptr) return;
     FlutterEngineScheduleFrame(g_client_engine);
+}
+
+// ==========================================================================
+// Container Frame Ready Signal Functions
+// ==========================================================================
+
+void dart_client_signal_container_frame_ready() {
+    g_container_frame_ready.store(true);
+}
+
+bool dart_client_is_container_frame_ready() {
+    return g_container_frame_ready.load();
+}
+
+void dart_client_clear_container_frame_ready() {
+    g_container_frame_ready.store(false);
 }
 
 } // extern "C"
