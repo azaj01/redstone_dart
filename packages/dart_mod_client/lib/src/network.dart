@@ -9,6 +9,10 @@ import 'dart:typed_data';
 import 'package:dart_mod_common/dart_mod_common.dart';
 import 'package:ffi/ffi.dart';
 
+/// Typedef for the native packet received callback.
+typedef _PacketReceivedCallbackNative = Void Function(
+    Int32 packetType, Pointer<Uint8> data, Int32 dataLength);
+
 /// Client-side network handler for receiving packets from server.
 ///
 /// This class provides the client-side API for receiving packets from
@@ -65,6 +69,10 @@ class ClientNetwork {
       _clientSetSendPacketToServerCallback;
   static late final _ClientSendPacketToServer _clientSendPacketToServer;
 
+  // NativeCallable for thread-safe packet receiving
+  // Uses .listener() to safely handle calls from any thread (e.g., JNI/render thread)
+  static NativeCallable<_PacketReceivedCallbackNative>? _packetReceivedCallable;
+
   static void _bindFunctions() {
     final lib = _lib!;
 
@@ -85,13 +93,19 @@ class ClientNetwork {
   }
 
   static void _registerNativeCallback() {
-    final callbackPtr = Pointer.fromFunction<_PacketReceivedCallbackNative>(
-        _onPacketReceived);
-    _clientRegisterPacketReceivedHandler(callbackPtr);
+    // Create NativeCallable.listener - this is safe to call from ANY thread
+    // The Dart VM will automatically post the callback to our isolate's event loop
+    // This fixes "Cannot invoke native callback outside an isolate" crashes
+    _packetReceivedCallable = NativeCallable<_PacketReceivedCallbackNative>.listener(
+      _onPacketReceivedFromNative,
+    );
+    _clientRegisterPacketReceivedHandler(_packetReceivedCallable!.nativeFunction);
   }
 
-  /// Native callback invoked when a packet is received from the server.
-  static void _onPacketReceived(
+  /// Internal callback from native code.
+  /// This is called from the Dart isolate's event loop (safe, thanks to NativeCallable.listener).
+  /// IMPORTANT: The data pointer is malloc'd by native code and must be freed here.
+  static void _onPacketReceivedFromNative(
       int packetType, Pointer<Uint8> data, int dataLength) {
     // Copy data to Dart memory
     final bytes = Uint8List(dataLength);
@@ -99,6 +113,15 @@ class ClientNetwork {
       bytes[i] = data[i];
     }
 
+    // Free the malloc'd native buffer (allocated by client_dispatch_server_packet)
+    malloc.free(data);
+
+    // Process the packet
+    _processReceivedPacket(packetType, bytes);
+  }
+
+  /// Process a received packet (called from event loop after native callback).
+  static void _processReceivedPacket(int packetType, Uint8List bytes) {
     // Decode the packet
     final packet = PacketRegistry.decode(packetType, bytes);
     if (packet == null) {
@@ -277,8 +300,6 @@ class ClientNetwork {
 }
 
 // Native callback signatures
-typedef _PacketReceivedCallbackNative = Void Function(
-    Int32 packetType, Pointer<Uint8> data, Int32 dataLength);
 typedef _SendPacketToServerCallbackNative = Void Function(
     Int32 packetType, Pointer<Uint8> data, Int32 dataLength);
 

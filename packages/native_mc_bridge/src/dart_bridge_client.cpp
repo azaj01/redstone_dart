@@ -1311,7 +1311,17 @@ void client_set_send_packet_to_server_callback(SendPacketToServerCallback cb) {
 
 void client_dispatch_server_packet(int32_t packet_type, const uint8_t* data, int32_t data_length) {
     CLIENT_DISPATCH_CHECK();
-    dart_mc_bridge::ClientCallbackRegistry::instance().dispatchPacketReceived(packet_type, data, data_length);
+    // IMPORTANT: When using NativeCallable.listener in Dart, the callback runs asynchronously
+    // on the Dart event loop. By that time, the original data pointer may be freed (e.g., by JNI
+    // ReleaseByteArrayElements). We must allocate a copy that Dart can free after processing.
+    uint8_t* data_copy = static_cast<uint8_t*>(malloc(data_length));
+    if (data_copy != nullptr) {
+        memcpy(data_copy, data, data_length);
+        dart_mc_bridge::ClientCallbackRegistry::instance().dispatchPacketReceived(packet_type, data_copy, data_length);
+        // Note: Dart is responsible for freeing data_copy via malloc.free() after reading
+    } else {
+        std::cerr << "[Native] client_dispatch_server_packet: Failed to allocate " << data_length << " bytes" << std::endl;
+    }
 }
 
 void client_send_packet_to_server(int32_t packet_type, const uint8_t* data, int32_t data_length) {

@@ -228,8 +228,27 @@ void registerCommands() {
     },
   );
 
-  // Note: /showcase_gui command removed - use Flutter UI via /fluttertest instead
+// Note: /showcase_gui command removed - use Flutter UI via /fluttertest instead
   // The old Screen-based GUI API is deprecated in favor of Flutter-based minecraft_ui
+
+  // /togglehud - Toggles the example HUD overlay
+  Commands.register(
+    'togglehud',
+    execute: (context) {
+      final player = context.source;
+
+      // Send a server event to the client to toggle the HUD
+      ServerNetwork.sendServerEvent(
+        player.id,
+        'toggle_hud',
+        {'overlayId': 'example_mod:status'},
+      );
+
+      context.sendFeedback('§e[HUD] §fToggled the status HUD overlay');
+      return 1;
+    },
+    description: 'Toggles the example HUD overlay',
+  );
 
   // =========================================================================
   // Server Lifecycle Commands
@@ -348,5 +367,5 @@ void registerCommands() {
     ],
   );
 
-  print('Commands: Registered 15 custom commands');
+  print('Commands: Registered 16 custom commands (including /togglehud for HUD demo)');
 }

@@ -3,11 +3,16 @@ library;
 
 // ignore_for_file: unused_field
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:typed_data';
 
 import 'package:dart_mod_common/dart_mod_common.dart';
+import 'package:dart_mod_common/src/jni/jni_internal.dart';
 import 'package:ffi/ffi.dart';
+
+/// The Java class name for DartBridge.
+const _dartBridge = 'com/redstone/DartBridge';
 
 /// Server-side network handler for sending packets to clients.
 ///
@@ -197,11 +202,23 @@ class ServerNetwork {
   }
 
   /// Send a custom server event to a player.
+  ///
+  /// This method uses JNI to send the packet, which works without explicit
+  /// initialization. This is the preferred method for sending server events.
   static void sendServerEvent(int playerId, String eventName, Map<String, dynamic> payload) {
-    sendToPlayer(playerId, ServerEventPacket(
-      eventName: eventName,
-      payload: payload,
-    ));
+    // Use JNI-based approach which doesn't require explicit init()
+    final jsonData = {
+      'eventName': eventName,
+      'payload': payload,
+    };
+    final jsonString = json.encode(jsonData);
+
+    GenericJniBridge.callStaticVoidMethod(
+      _dartBridge,
+      'sendS2CPacket',
+      '(IILjava/lang/String;)V',
+      [playerId, PacketTypes.serverEvent, jsonString],
+    );
   }
 }
 

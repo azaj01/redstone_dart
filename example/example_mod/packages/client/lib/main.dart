@@ -47,9 +47,19 @@ void main() {
   // Initialize the JNI bridge for calling Java methods from Dart
   GenericJniBridge.init();
 
+  // Initialize the HUD registry for overlay rendering
+  HudRegistry.initialize();
+
+  // Register HUD overlays
+  _registerHudOverlays();
+
   // Register surface widgets for multi-surface rendering
   // These can be displayed on FlutterDisplayEntity in the world
   _registerSurfaceWidgets();
+
+  // Initialize client network and register event handlers
+  ClientNetwork.init();
+  _registerClientEventHandlers();
 
   // Start the Flutter app for UI rendering
   // The Flutter embedder will capture frames from this app and display
@@ -81,58 +91,61 @@ class MinecraftGuiApp extends StatelessWidget {
       theme: ThemeData(scaffoldBackgroundColor: Colors.transparent),
       home: McTheme(
         guiScale: 1.0, // Use 1.0 - Java already scales to framebuffer pixels
-        child: GuiRouter(
-          routes: [
-            // Test chest container
-            GuiRoute(
-              containerId: 'example_mod:test_chest',
-              builder: (context, info) => TestChestScreen(menuId: info.menuId),
-            ),
-            // SimpleFurnace - demonstrates the new Container API with reactive synced values
-            GuiRoute(
-              title: 'Simple Furnace',
-              containerBuilder: () => SimpleFurnaceContainer(),
-              screenBuilder: (context) => const SimpleFurnaceScreen(),
-              cacheSlotPositions: true,
-            ),
-            // ExampleFurnace - Container API-based furnace
-            GuiRoute(
-              title: 'Example Furnace',
-              containerBuilder: () => ExampleFurnaceContainer(),
-              screenBuilder: (context) => const SimpleFurnaceScreen(),
-              cacheSlotPositions: true,
-            ),
-            // Animated Chest - demonstrates stateful animations with lid opening
-            GuiRoute(
-              title: 'Animated Chest',
-              containerBuilder: () => AnimatedChestContainerClient(),
-              screenBuilder: (context) => const AnimatedChestScreen(),
-              cacheSlotPositions: true,
-            ),
-          ],
-          // Show a test background when no container is open
-          // This helps verify the Metal rendering pipeline is working
-          background: Container(
-            color: Colors.blue,
-            child: const Center(
-              child: Text(
-                'Flutter Rendering Test',
-                style: TextStyle(color: Colors.white, fontSize: 32),
+        // Wrap with HudLayerScope to enable HUD overlays
+        child: HudLayerScope(
+          child: GuiRouter(
+            routes: [
+              // Test chest container
+              GuiRoute(
+                containerId: 'example_mod:test_chest',
+                builder: (context, info) => TestChestScreen(menuId: info.menuId),
               ),
-            ),
-          ),
-          // Fallback for unknown container types - show a generic screen
-          fallback: (context, info) {
-            print('[GuiRouter] Unknown container: ${info.containerId}');
-            return Center(
-              child: McPanel(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: McText.label('Unknown container: ${info.containerId}'),
+              // SimpleFurnace - demonstrates the new Container API with reactive synced values
+              GuiRoute(
+                title: 'Simple Furnace',
+                containerBuilder: () => SimpleFurnaceContainer(),
+                screenBuilder: (context) => const SimpleFurnaceScreen(),
+                cacheSlotPositions: true,
+              ),
+              // ExampleFurnace - Container API-based furnace
+              GuiRoute(
+                title: 'Example Furnace',
+                containerBuilder: () => ExampleFurnaceContainer(),
+                screenBuilder: (context) => const SimpleFurnaceScreen(),
+                cacheSlotPositions: true,
+              ),
+              // Animated Chest - demonstrates stateful animations with lid opening
+              GuiRoute(
+                title: 'Animated Chest',
+                containerBuilder: () => AnimatedChestContainerClient(),
+                screenBuilder: (context) => const AnimatedChestScreen(),
+                cacheSlotPositions: true,
+              ),
+            ],
+            // Show a test background when no container is open
+            // This helps verify the Metal rendering pipeline is working
+            background: Container(
+              color: Colors.blue,
+              child: const Center(
+                child: Text(
+                  'Flutter Rendering Test',
+                  style: TextStyle(color: Colors.white, fontSize: 32),
                 ),
               ),
-            );
-          },
+            ),
+            // Fallback for unknown container types - show a generic screen
+            fallback: (context, info) {
+              print('[GuiRouter] Unknown container: ${info.containerId}');
+              return Center(
+                child: McPanel(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: McText.label('Unknown container: ${info.containerId}'),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -519,6 +532,153 @@ class AnimatedChestScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// =============================================================================
+// HUD Overlay Registration & Example
+// =============================================================================
+
+/// The HUD overlay ID for the example status overlay.
+const exampleHudOverlayId = 'example_mod:status';
+
+/// Register HUD overlays for the mod.
+void _registerHudOverlays() {
+  HudRegistry.register(exampleHudOverlayId, () => const ExampleStatusHud());
+  print('[Client] Registered HUD overlay: $exampleHudOverlayId');
+}
+
+/// Register client-side event handlers for server events.
+void _registerClientEventHandlers() {
+  ClientNetwork.onServerEvent((event) {
+    if (event.eventName == 'toggle_hud') {
+      final overlayId = event.payload['overlayId'] as String?;
+      if (overlayId != null) {
+        HudRegistry.toggle(overlayId);
+        print('[Client] Toggled HUD overlay: $overlayId');
+      }
+    }
+  });
+  print('[Client] Registered server event handlers');
+}
+
+/// Example HUD overlay showing a status display.
+///
+/// Demonstrates the HUD system with a simple status panel showing
+/// position coordinates and a timestamp that updates every second.
+class ExampleStatusHud extends HudOverlay {
+  const ExampleStatusHud({super.key});
+
+  @override
+  HudPosition get position => HudPosition.topLeft;
+
+  @override
+  HudOffset get offset => const HudOffset(10, 10);
+
+  @override
+  double get width => 180;
+
+  @override
+  double get height => 80;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(0, 0, 0, 0.7),
+        border: Border.all(color: Colors.grey.shade700, width: 2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Title row with icon
+          Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'STATUS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Divider
+          Container(
+            height: 1,
+            color: Colors.grey.shade600,
+          ),
+          const SizedBox(height: 6),
+          // Live clock display
+          _LiveClock(),
+          const SizedBox(height: 2),
+          // Mod info
+          const Text(
+            'Example Mod v1.0',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A live clock widget that updates every second.
+class _LiveClock extends StatefulWidget {
+  @override
+  State<_LiveClock> createState() => _LiveClockState();
+}
+
+class _LiveClockState extends State<_LiveClock> {
+  late Stream<DateTime> _timeStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeStream = Stream.periodic(
+      const Duration(seconds: 1),
+      (_) => DateTime.now(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DateTime>(
+      stream: _timeStream,
+      builder: (context, snapshot) {
+        final time = snapshot.data ?? DateTime.now();
+        final timeStr =
+            '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+        return Text(
+          'Time: $timeStr',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontFamily: 'monospace',
+          ),
+        );
+      },
     );
   }
 }
