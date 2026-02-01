@@ -16,11 +16,17 @@ extern "C" {
 // Lifecycle
 // ==========================================================================
 
-// Initialize the Dart VM and load the server-side script
-// script_path: Path to the Dart script to run
+// Initialize the Dart VM and load the server-side script (JIT mode)
+// script_path: Path to the Dart script to run (kernel file .dill)
 // package_config: Path to package_config.json (can be null)
-// service_port: Port for Dart VM service (hot reload/debugging)
+// service_port: Port for Dart VM service (hot reload/debugging), 0 to disable
 bool dart_server_init(const char* script_path, const char* package_config, int service_port);
+
+// Initialize the Dart VM with AOT snapshot (release mode)
+// aot_library_path: Path to AOT compiled library (.so/.dll/dylib containing snapshots)
+// Returns true if successful, false otherwise
+// Note: AOT mode does not support hot reload or VM service
+bool dart_server_init_aot(const char* aot_library_path);
 
 // Shutdown the Dart VM
 void dart_server_shutdown();

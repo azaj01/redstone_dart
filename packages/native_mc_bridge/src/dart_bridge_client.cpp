@@ -755,16 +755,34 @@ bool dart_client_init(const char* assets_path, const char* icu_data_path, const 
     args.assets_path = assets_path;
     args.icu_data_path = icu_data_path;
 
-    // Enable VM service for hot reload in debug mode
-    // Port 0 lets the system choose an available port
-    const char* vm_args[] = {
-        "--enable-dart-profiling",
-        "--enable-asserts",
-        "--enable-vm-service=0",
-        "--disable-service-auth-codes",
-    };
-    args.command_line_argc = 4;
-    args.command_line_argv = vm_args;
+    // Detect AOT vs JIT mode based on whether aot_library_path is provided
+    bool is_aot_mode = (aot_library_path != nullptr && strlen(aot_library_path) > 0);
+
+    if (is_aot_mode) {
+        // AOT mode: load precompiled snapshot from ELF file
+        std::cout << "  Mode: AOT (release)" << std::endl;
+        args.elf_snapshot_path = aot_library_path;
+
+        // In AOT mode, we don't need VM service (hot reload not supported)
+        // Use minimal flags for better performance
+        static const char* aot_vm_args[] = {
+            "--enable-dart-profiling",
+        };
+        args.command_line_argc = 1;
+        args.command_line_argv = aot_vm_args;
+    } else {
+        // JIT mode: enable VM service for hot reload in debug mode
+        // Port 0 lets the system choose an available port
+        std::cout << "  Mode: JIT (debug)" << std::endl;
+        static const char* jit_vm_args[] = {
+            "--enable-dart-profiling",
+            "--enable-asserts",
+            "--enable-vm-service=0",
+            "--disable-service-auth-codes",
+        };
+        args.command_line_argc = 4;
+        args.command_line_argv = jit_vm_args;
+    }
 
     args.vsync_callback = OnClientVsync;
     args.platform_message_callback = OnClientPlatformMessage;

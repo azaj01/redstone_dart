@@ -143,6 +143,38 @@ JNIEXPORT jboolean JNICALL Java_com_redstone_DartBridge_initServer(
 
 /*
  * Class:     com_redstone_DartBridge
+ * Method:    initServerAot
+ * Signature: (Ljava/lang/String;)Z
+ *
+ * Initialize the server-side Dart runtime in AOT mode.
+ * @param aot_library_path Path to AOT compiled library (.so/.dll/dylib)
+ */
+JNIEXPORT jboolean JNICALL Java_com_redstone_DartBridge_initServerAot(
+    JNIEnv* env, jclass /* cls */,
+    jstring aot_library_path) {
+
+    // Capture JVM reference early for object registry cleanup
+    if (g_jvm == nullptr) {
+        env->GetJavaVM(&g_jvm);
+        dart_server_set_jvm(g_jvm);
+    }
+
+    const char* aot_path = aot_library_path ? env->GetStringUTFChars(aot_library_path, nullptr) : nullptr;
+
+    if (!aot_path) {
+        std::cerr << "JNI: Failed to get AOT library path string" << std::endl;
+        return JNI_FALSE;
+    }
+
+    bool result = dart_server_init_aot(aot_path);
+
+    env->ReleaseStringUTFChars(aot_library_path, aot_path);
+
+    return result ? JNI_TRUE : JNI_FALSE;
+}
+
+/*
+ * Class:     com_redstone_DartBridge
  * Method:    shutdownServer
  * Signature: ()V
  */
