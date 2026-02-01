@@ -233,21 +233,30 @@ bool dart_bridge_init(const char* assets_path, const char* icu_data_path,
     args.assets_path = assets_path;
     args.icu_data_path = icu_data_path;
 
-    // Set AOT library path if provided (for release mode)
-    if (aot_library_path != nullptr && strlen(aot_library_path) > 0) {
-        args.aot_data = nullptr;  // Will be loaded from the library path
-        // Note: For AOT, we might need to load the library differently
-        // depending on the platform. For now, assume assets_path contains the AOT data.
-    }
+    // Detect AOT vs JIT mode based on whether aot_library_path is provided
+    bool is_aot_mode = (aot_library_path != nullptr && strlen(aot_library_path) > 0);
 
-    // Enable VM service for hot reload in debug mode
-    // Note: In Flutter embedder, this is handled differently than dart_dll
-    const char* vm_args[] = {
-        "--enable-dart-profiling",
-        "--enable-asserts",  // Enable asserts in debug mode
-    };
-    args.command_line_argc = 2;
-    args.command_line_argv = vm_args;
+    if (is_aot_mode) {
+        // AOT mode: load precompiled snapshot from ELF file
+        std::cout << "  Mode: AOT (release)" << std::endl;
+        args.elf_snapshot_path = aot_library_path;
+
+        // In AOT mode, we don't need VM service (hot reload not supported)
+        static const char* aot_vm_args[] = {
+            "--enable-dart-profiling",
+        };
+        args.command_line_argc = 1;
+        args.command_line_argv = aot_vm_args;
+    } else {
+        // JIT mode: enable VM service for hot reload in debug mode
+        std::cout << "  Mode: JIT (debug)" << std::endl;
+        static const char* jit_vm_args[] = {
+            "--enable-dart-profiling",
+            "--enable-asserts",  // Enable asserts in debug mode
+        };
+        args.command_line_argc = 2;
+        args.command_line_argv = jit_vm_args;
+    }
 
     // Set up vsync callback
     args.vsync_callback = OnVsync;

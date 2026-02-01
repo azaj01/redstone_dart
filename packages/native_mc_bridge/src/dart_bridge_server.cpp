@@ -14,6 +14,19 @@
 #include <atomic>
 #include <queue>
 
+// Platform-specific dynamic library loading for AOT support
+#ifdef _WIN32
+#include <windows.h>
+#define LOAD_LIBRARY(path) LoadLibraryA(path)
+#define GET_SYMBOL(lib, name) GetProcAddress((HMODULE)lib, name)
+#define CLOSE_LIBRARY(lib) FreeLibrary((HMODULE)lib)
+#else
+#include <dlfcn.h>
+#define LOAD_LIBRARY(path) dlopen(path, RTLD_LAZY)
+#define GET_SYMBOL(lib, name) dlsym(lib, name)
+#define CLOSE_LIBRARY(lib) dlclose(lib)
+#endif
+
 // ==========================================================================
 // Server Dart VM State
 // ==========================================================================
@@ -29,6 +42,12 @@ static JavaVM* g_server_jvm_ref = nullptr;
 
 // Service URL storage
 static std::string g_server_service_url;
+
+// AOT mode flag - changes shutdown and tick behavior
+static bool g_server_aot_mode = false;
+
+// Handle to dynamically loaded AOT library
+static void* g_aot_library_handle = nullptr;
 
 // Chat message callback
 static SendChatMessageCallback g_server_send_chat_callback = nullptr;
@@ -73,6 +92,20 @@ static void safe_exit_isolate(bool did_enter) {
     g_server_isolate_owner_thread = std::thread::id();
     g_server_isolate_entry_count = 0;
     g_server_isolate_mutex.unlock();
+}
+
+// Helper function to drain microtask queue - works in both JIT and AOT modes
+static void drain_microtask_queue() {
+    if (g_server_aot_mode) {
+        // AOT mode: use direct Dart API to handle messages
+        Dart_Handle result = Dart_HandleMessage();
+        while (result != Dart_Null() && !Dart_IsError(result)) {
+            result = Dart_HandleMessage();
+        }
+    } else {
+        // JIT mode: use DartDll helper
+        drain_microtask_queue();
+    }
 }
 
 // ==========================================================================
@@ -569,7 +602,7 @@ bool dart_server_init(const char* script_path, const char* package_config, int s
     }
 
     // Drain microtask queue to complete async initialization
-    DartDll_DrainMicrotaskQueue();
+    drain_microtask_queue();
 
     Dart_ExitScope();
     Dart_ExitIsolate();
@@ -584,6 +617,153 @@ bool dart_server_init(const char* script_path, const char* package_config, int s
     }
 
     std::cout << "Server Dart VM initialized successfully" << std::endl;
+
+    return true;
+}
+
+bool dart_server_init_aot(const char* aot_library_path) {
+    if (g_server_initialized) {
+        std::cerr << "Server Dart bridge already initialized" << std::endl;
+        return false;
+    }
+
+    if (aot_library_path == nullptr || strlen(aot_library_path) == 0) {
+        std::cerr << "AOT library path is required for AOT mode" << std::endl;
+        return false;
+    }
+
+    std::cout << "Initializing Server Dart VM in AOT mode..." << std::endl;
+    std::cout << "  AOT library: " << aot_library_path << std::endl;
+
+    // Load the AOT library
+    g_aot_library_handle = LOAD_LIBRARY(aot_library_path);
+    if (g_aot_library_handle == nullptr) {
+#ifdef _WIN32
+        std::cerr << "Failed to load AOT library: " << aot_library_path
+                  << " (error: " << GetLastError() << ")" << std::endl;
+#else
+        std::cerr << "Failed to load AOT library: " << aot_library_path
+                  << " (error: " << dlerror() << ")" << std::endl;
+#endif
+        return false;
+    }
+
+    // Load snapshot symbols from the AOT library
+    // The Dart AOT compiler exports these symbols
+    const uint8_t* vm_snapshot_data = static_cast<const uint8_t*>(
+        GET_SYMBOL(g_aot_library_handle, kVmSnapshotDataCSymbol));
+    const uint8_t* vm_snapshot_instructions = static_cast<const uint8_t*>(
+        GET_SYMBOL(g_aot_library_handle, kVmSnapshotInstructionsCSymbol));
+    const uint8_t* isolate_snapshot_data = static_cast<const uint8_t*>(
+        GET_SYMBOL(g_aot_library_handle, kIsolateSnapshotDataCSymbol));
+    const uint8_t* isolate_snapshot_instructions = static_cast<const uint8_t*>(
+        GET_SYMBOL(g_aot_library_handle, kIsolateSnapshotInstructionsCSymbol));
+
+    if (vm_snapshot_data == nullptr || vm_snapshot_instructions == nullptr ||
+        isolate_snapshot_data == nullptr || isolate_snapshot_instructions == nullptr) {
+        std::cerr << "Failed to load snapshot symbols from AOT library" << std::endl;
+        std::cerr << "  vm_snapshot_data: " << (vm_snapshot_data ? "found" : "not found") << std::endl;
+        std::cerr << "  vm_snapshot_instructions: " << (vm_snapshot_instructions ? "found" : "not found") << std::endl;
+        std::cerr << "  isolate_snapshot_data: " << (isolate_snapshot_data ? "found" : "not found") << std::endl;
+        std::cerr << "  isolate_snapshot_instructions: " << (isolate_snapshot_instructions ? "found" : "not found") << std::endl;
+        CLOSE_LIBRARY(g_aot_library_handle);
+        g_aot_library_handle = nullptr;
+        return false;
+    }
+
+    std::cout << "  Snapshot symbols loaded successfully" << std::endl;
+
+    // Initialize the Dart VM with AOT snapshots
+    Dart_InitializeParams init_params;
+    memset(&init_params, 0, sizeof(init_params));
+    init_params.version = DART_INITIALIZE_PARAMS_CURRENT_VERSION;
+    init_params.vm_snapshot_data = vm_snapshot_data;
+    init_params.vm_snapshot_instructions = vm_snapshot_instructions;
+
+    char* init_error = Dart_Initialize(&init_params);
+    if (init_error != nullptr) {
+        std::cerr << "Failed to initialize Dart VM: " << init_error << std::endl;
+        free(init_error);
+        CLOSE_LIBRARY(g_aot_library_handle);
+        g_aot_library_handle = nullptr;
+        return false;
+    }
+
+    std::cout << "  Dart VM initialized" << std::endl;
+
+    // Create the isolate from the AOT snapshot
+    Dart_IsolateFlags flags;
+    Dart_IsolateFlagsInitialize(&flags);
+    flags.is_system_isolate = false;
+
+    char* error = nullptr;
+    g_server_isolate = Dart_CreateIsolateGroup(
+        "aot_snapshot",  // script_uri (placeholder)
+        "main",          // isolate name
+        isolate_snapshot_data,
+        isolate_snapshot_instructions,
+        &flags,
+        nullptr,  // isolate_group_data
+        nullptr,  // isolate_data
+        &error
+    );
+
+    if (g_server_isolate == nullptr) {
+        std::cerr << "Failed to create isolate from AOT snapshot: "
+                  << (error ? error : "unknown error") << std::endl;
+        if (error) free(error);
+        (void)Dart_Cleanup();
+        CLOSE_LIBRARY(g_aot_library_handle);
+        g_aot_library_handle = nullptr;
+        return false;
+    }
+
+    std::cout << "  Isolate created from AOT snapshot" << std::endl;
+
+    // Enter the isolate scope
+    Dart_EnterScope();
+
+    // Get and run the main function
+    Dart_Handle root_library = Dart_RootLibrary();
+    if (Dart_IsError(root_library)) {
+        std::cerr << "Failed to get root library: " << Dart_GetError(root_library) << std::endl;
+        Dart_ExitScope();
+        Dart_ShutdownIsolate();
+        (void)Dart_Cleanup();
+        CLOSE_LIBRARY(g_aot_library_handle);
+        g_aot_library_handle = nullptr;
+        g_server_isolate = nullptr;
+        return false;
+    }
+
+    // Invoke main()
+    Dart_Handle main_name = Dart_NewStringFromCString("main");
+    Dart_Handle main_result = Dart_Invoke(root_library, main_name, 0, nullptr);
+    if (Dart_IsError(main_result)) {
+        std::cerr << "Failed to invoke main(): " << Dart_GetError(main_result) << std::endl;
+        Dart_ExitScope();
+        Dart_ShutdownIsolate();
+        (void)Dart_Cleanup();
+        CLOSE_LIBRARY(g_aot_library_handle);
+        g_aot_library_handle = nullptr;
+        g_server_isolate = nullptr;
+        return false;
+    }
+
+    // Drain microtask queue to complete async initialization
+    Dart_Handle drain_result = Dart_HandleMessage();
+    while (drain_result != Dart_Null() && !Dart_IsError(drain_result)) {
+        drain_result = Dart_HandleMessage();
+    }
+
+    Dart_ExitScope();
+    Dart_ExitIsolate();
+
+    g_server_initialized = true;
+    g_server_aot_mode = true;
+
+    std::cout << "Server Dart VM initialized successfully (AOT mode)" << std::endl;
+    std::cout << "  Note: Hot reload is not available in AOT mode" << std::endl;
 
     return true;
 }
@@ -610,13 +790,26 @@ void dart_server_shutdown() {
         g_server_isolate = nullptr;
     }
 
-    // Now shutdown the VM
-    // Note: DartDll_Shutdown can hang if there are pending isolates/threads
-    // Since we already shut down our isolate, this should be quick
+    // Shutdown the VM
     std::cout << "  Shutting down Dart VM..." << std::endl;
-    DartDll_Shutdown();
+    if (g_server_aot_mode) {
+        // AOT mode: use direct Dart API cleanup
+        (void)Dart_Cleanup();
+
+        // Close the AOT library
+        if (g_aot_library_handle != nullptr) {
+            CLOSE_LIBRARY(g_aot_library_handle);
+            g_aot_library_handle = nullptr;
+        }
+    } else {
+        // JIT mode: use DartDll_Shutdown
+        // Note: DartDll_Shutdown can hang if there are pending isolates/threads
+        // Since we already shut down our isolate, this should be quick
+        DartDll_Shutdown();
+    }
 
     g_server_initialized = false;
+    g_server_aot_mode = false;
     g_server_jvm_ref = nullptr;
 
     std::cout << "Server Dart VM shutdown complete" << std::endl;
@@ -629,7 +822,7 @@ void dart_server_tick() {
     bool did_enter = safe_enter_isolate();
     Dart_EnterScope();
 
-    DartDll_DrainMicrotaskQueue();
+    drain_microtask_queue();
 
     Dart_ExitScope();
     safe_exit_isolate(did_enter);
@@ -787,7 +980,7 @@ void server_dispatch_tick(int64_t tick) {
     bool did_enter = safe_enter_isolate();
     Dart_EnterScope();
     dart_mc_bridge::ServerCallbackRegistry::instance().dispatchTick(tick);
-    DartDll_DrainMicrotaskQueue();  // Also drain after tick
+    drain_microtask_queue();  // Also drain after tick
     Dart_ExitScope();
     safe_exit_isolate(did_enter);
 }
@@ -1185,7 +1378,7 @@ void server_dispatch_server_started() {
     bool did_enter = safe_enter_isolate();
     Dart_EnterScope();
     dart_mc_bridge::ServerCallbackRegistry::instance().dispatchServerStarted();
-    DartDll_DrainMicrotaskQueue();
+    drain_microtask_queue();
     Dart_ExitScope();
     safe_exit_isolate(did_enter);
 }
