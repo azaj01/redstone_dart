@@ -82,7 +82,7 @@ class HelloBlock extends CustomBlock {
       );
       // Spawn some particles for visual feedback
       World.overworld.spawnParticles(
-        Particles.happyVillager,
+        Particles.villagerHappy,
         Vec3(x + 0.5, y + 1.0, z + 0.5),
         count: 10,
         delta: Vec3(0.3, 0.3, 0.3),
@@ -130,15 +130,15 @@ class HelloWand extends CustomItem {
         );
 
   @override
-  ActionResult onUse(int worldId, int playerId, int hand) {
+  ItemActionResult onUse(int worldId, int playerId, int hand) {
     final player = Players.getPlayer(playerId);
-    if (player == null) return ActionResult.pass;
+    if (player == null) return ItemActionResult.pass;
 
     // Give the player a speed boost
     player.sendMessage('{{project_name_title}}: Woosh!');
-    player.addEffect('minecraft:speed', duration: 200, amplifier: 2);
+    LivingEntity(playerId).addEffect(StatusEffect.speed, 200, amplifier: 2);
 
-    return ActionResult.success;
+    return ItemActionResult.success;
   }
 }
 
