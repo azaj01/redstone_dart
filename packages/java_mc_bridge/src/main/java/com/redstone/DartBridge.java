@@ -37,11 +37,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -64,6 +59,8 @@ import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.tags.DamageTypeTags;
 
 import com.redstone.util.ItemStackSerializer;
+
+import org.scijava.nativelib.NativeLoader;
 
 /**
  * JNI interface to the native Dart bridge.
@@ -97,55 +94,37 @@ public class DartBridge {
     }
 
     private static void loadNativeLibrary() {
-        String osName = System.getProperty("os.name").toLowerCase();
-        String libName;
-        String libResource;
-
-        if (osName.contains("mac")) {
-            libName = "dart_mc_bridge.dylib";
-            libResource = "/natives/macos/" + libName;
-        } else if (osName.contains("win")) {
-            libName = "dart_mc_bridge.dll";
-            libResource = "/natives/windows/" + libName;
-        } else {
-            libName = "libdart_mc_bridge.so";
-            libResource = "/natives/linux/" + libName;
-        }
-
-        // First try to load from java.library.path
+        // First try development mode: load from java.library.path (set by redstone run)
         try {
             System.loadLibrary("dart_mc_bridge");
-            LOGGER.info("Loaded dart_mc_bridge from java.library.path");
+            LOGGER.info("Loaded dart_mc_bridge from java.library.path (development mode)");
             return;
         } catch (UnsatisfiedLinkError e) {
-            LOGGER.debug("Could not load from java.library.path, trying embedded resource");
+            LOGGER.debug("Could not load from java.library.path: {}", e.getMessage());
         }
 
-        // Try to extract from JAR resources
-        try (InputStream in = DartBridge.class.getResourceAsStream(libResource)) {
-            if (in != null) {
-                Path tempDir = Files.createTempDirectory("dart_mc_bridge");
-                File tempLib = new File(tempDir.toFile(), libName);
-                tempLib.deleteOnExit();
-                tempDir.toFile().deleteOnExit();
-
-                try (OutputStream out = new FileOutputStream(tempLib)) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                }
-
-                System.load(tempLib.getAbsolutePath());
-                LOGGER.info("Loaded dart_mc_bridge from embedded resource");
-                return;
-            }
+        // Try NativeLoader (extracts from JAR resources automatically)
+        // This is the primary method for distributed mod JARs
+        // NativeLoader expects natives at /natives/{platform}/libname.{ext}
+        try {
+            NativeLoader.loadLibrary("dart_mc_bridge");
+            LOGGER.info("Loaded dart_mc_bridge via NativeLoader (JAR distribution mode)");
+            return;
         } catch (Exception e) {
-            LOGGER.debug("Could not load from embedded resource: {}", e.getMessage());
+            LOGGER.debug("Could not load via NativeLoader: {}", e.getMessage());
         }
 
-        // Last resort: try absolute path in run directory
+        // Fallback: try absolute paths in run directory (legacy support)
+        String osName = System.getProperty("os.name").toLowerCase();
+        String libName;
+        if (osName.contains("mac")) {
+            libName = "dart_mc_bridge.dylib";
+        } else if (osName.contains("win")) {
+            libName = "dart_mc_bridge.dll";
+        } else {
+            libName = "libdart_mc_bridge.so";
+        }
+
         String runDir = System.getProperty("user.dir");
         String[] searchPaths = {
             runDir + "/natives/" + libName,
@@ -163,7 +142,9 @@ public class DartBridge {
         }
 
         // If nothing works, throw error
-        throw new UnsatisfiedLinkError("Could not find dart_mc_bridge native library");
+        throw new UnsatisfiedLinkError("Could not find dart_mc_bridge native library. " +
+            "For development: ensure native is in java.library.path. " +
+            "For distribution: ensure natives are in JAR at /natives/{platform}/");
     }
 
     // ==========================================================================
