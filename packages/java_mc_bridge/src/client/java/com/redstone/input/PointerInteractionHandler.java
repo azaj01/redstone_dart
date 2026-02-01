@@ -463,10 +463,6 @@ public class PointerInteractionHandler {
      * Find the surface ID for an entity.
      */
     private static long findSurfaceIdForEntity(int entityId, String route) {
-        // The surface is created by FlutterDisplayRenderer when the entity is rendered
-        // For now, we'll try to find it through the texture manager
-        // This might need adjustment based on how surfaces are tracked
-
         // If route is empty, it uses the main surface (0)
         // Note: Main surface pointer events use sendPointerEvent, not sendSurfacePointerEvent
         if (route == null || route.isEmpty()) {
@@ -474,12 +470,17 @@ public class PointerInteractionHandler {
             return 0;
         }
 
-        // For routed surfaces, we need to find the surface ID
-        // This will be populated when the renderer creates the surface
-        // For now, return a placeholder - the actual lookup would use
-        // FlutterDisplayRenderer's entitySurfaceCache
-        LOGGER.info("Looking for surface for entity {} with route '{}'", entityId, route);
-        return 1; // Placeholder - actual implementation needed
+        // Look up the surface ID from the renderer's cache
+        long surfaceId = com.redstone.render.FlutterDisplayRenderer.getSurfaceIdForEntity(entityId);
+        if (surfaceId > 0) {
+            LOGGER.info("Found surface {} for entity {} with route '{}'", surfaceId, entityId, route);
+            return surfaceId;
+        }
+
+        // Surface not yet created - this can happen if pointer lock is acquired
+        // before the entity has been rendered. Log a warning.
+        LOGGER.warn("No surface found for entity {} with route '{}' - entity may not have been rendered yet", entityId, route);
+        return -1;
     }
 
     /**

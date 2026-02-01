@@ -6,6 +6,7 @@
       "files": [
         "pubspec.yaml.tmpl",
         "redstone.yaml.tmpl",
+        ".vscode/settings.json.tmpl",
         "packages/server/pubspec.yaml.tmpl",
         "packages/server/lib/main.dart.tmpl",
         "packages/client/pubspec.yaml.tmpl",

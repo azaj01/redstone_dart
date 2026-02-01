@@ -154,6 +154,19 @@ public class FlutterDisplayRenderer extends DisplayRenderer<
         }
     }
 
+    /**
+     * Get the surface ID for an entity, if one exists.
+     * Returns the cached surface ID, or -1 if no surface exists for this entity.
+     * Used by PointerInteractionHandler to route input events.
+     */
+    public static long getSurfaceIdForEntity(int entityId) {
+        SurfaceCacheEntry entry = entitySurfaceCache.get(entityId);
+        if (entry != null && entry.surfaceId > 0) {
+            return entry.surfaceId;
+        }
+        return -1;
+    }
+
     @Override
     public FlutterDisplayRenderState createRenderState() {
         return new FlutterDisplayRenderState();

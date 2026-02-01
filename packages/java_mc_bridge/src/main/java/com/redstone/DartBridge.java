@@ -353,15 +353,10 @@ public class DartBridge {
      * @param data The packet payload data
      */
     public static void dispatchClientPacket(int playerId, int packetType, byte[] data) {
-        if (!initialized) {
-            LOGGER.warn("Cannot dispatch client packet: Dart bridge not initialized");
-            return;
-        }
-        try {
-            dispatchClientPacketNative(playerId, packetType, data);
-        } catch (Exception e) {
-            LOGGER.error("Exception dispatching client packet: {}", e.getMessage());
-        }
+        // NOTE: dispatchClientPacketNative is not implemented in the native library.
+        // Client packets are handled via ServerNetwork.onPacketReceived() on the Dart side.
+        // This method is kept for API compatibility but is effectively a no-op.
+        LOGGER.debug("dispatchClientPacket called - packets are handled via ServerNetwork in Dart");
     }
 
     // ==========================================================================

@@ -850,6 +850,7 @@ class GameServer {
       return _errorResponse('Failed to set block entity slot: $e', statusCode: 400);
     }
   }
+
 }
 
 /// Provider interface for game context operations.
