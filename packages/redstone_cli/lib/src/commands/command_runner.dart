@@ -5,6 +5,7 @@ import 'create_command.dart';
 import 'devices_command.dart';
 import 'doctor_command.dart';
 import 'generate_command.dart';
+import 'package_command.dart';
 import 'run_command.dart';
 import 'test_command.dart';
 import 'upgrade_command.dart';
@@ -35,6 +36,7 @@ class RedstoneCommandRunner extends CommandRunner<int> {
     addCommand(DevicesCommand());
     addCommand(DoctorCommand());
     addCommand(GenerateCommand());
+    addCommand(PackageCommand());
     addCommand(RunCommand());
     addCommand(TestCommand());
     addCommand(UpgradeCommand());
