@@ -257,6 +257,9 @@ final class HurtByTargetGoal extends EntityGoal {
 }
 
 /// Reference to a custom goal defined via CustomGoal class.
+///
+/// **Legacy API** - prefer using [CustomGoalFactory] for new code.
+/// This uses the singleton pattern where one goal instance handles all entities.
 final class CustomGoalRef extends EntityGoal {
   /// The ID of the custom goal (must match CustomGoal.id)
   final String goalId;
@@ -284,7 +287,130 @@ final class CustomGoalRef extends EntityGoal {
       };
 }
 
+/// Factory-based custom goal that creates a new instance per entity.
+///
+/// This follows the Minecraft pattern where each entity gets its own goal
+/// instance with its own state. The factory function receives the entity ID
+/// when the goal is created.
+///
+/// Example:
+/// ```dart
+/// class WalkStraightGoal extends Goal {
+///   final int entityId;
+///   Vec3? direction;  // Per-entity state - no manual map needed!
+///
+///   WalkStraightGoal(this.entityId);
+///
+///   @override
+///   void start() {
+///     direction = calculateDirection(Entity(entityId).yaw);
+///   }
+///
+///   @override
+///   void tick() {
+///     EntityActions.moveTo(entityId, direction!.x * 100, ...);
+///   }
+/// }
+///
+/// // In entity settings:
+/// goals: [
+///   CustomGoalFactory(
+///     priority: 1,
+///     factory: (entityId) => WalkStraightGoal(entityId),
+///   ),
+/// ]
+/// ```
+final class CustomGoalFactory extends EntityGoal {
+  /// Factory function that creates a new goal instance for each entity.
+  /// Called when the entity spawns with the entity's ID.
+  final Goal Function(int entityId) factory;
+
+  /// Flags indicating what controls this goal uses.
+  final Set<GoalFlag> flags;
+
+  /// Whether tick() is called every tick.
+  final bool requiresUpdateEveryTick;
+
+  const CustomGoalFactory({
+    required super.priority,
+    required this.factory,
+    this.flags = const {},
+    this.requiresUpdateEveryTick = true,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'custom_factory',
+        'priority': priority,
+        'flags': flags.map((f) => f.name).toList(),
+        'requiresUpdateEveryTick': requiresUpdateEveryTick,
+      };
+}
+
+/// Base class for per-entity goal instances (Minecraft-style).
+///
+/// Each entity gets its own instance of this goal, so you can store
+/// per-entity state as regular instance fields instead of using maps.
+///
+/// Example:
+/// ```dart
+/// class FollowPathGoal extends Goal {
+///   final int entityId;
+///   List<Vec3> waypoints = [];
+///   int currentWaypoint = 0;
+///
+///   FollowPathGoal(this.entityId);
+///
+///   @override
+///   bool canUse() => waypoints.isNotEmpty;
+///
+///   @override
+///   void tick() {
+///     // Use instance state directly - no map lookup needed!
+///     final target = waypoints[currentWaypoint];
+///     EntityActions.moveTo(entityId, target.x, target.y, target.z);
+///   }
+/// }
+/// ```
+abstract class Goal {
+  /// Called to check if this goal can start.
+  bool canUse() => false;
+
+  /// Called to check if this goal should continue running.
+  bool canContinueToUse() => canUse();
+
+  /// Called when the goal starts.
+  void start() {}
+
+  /// Called every tick while the goal is active.
+  void tick() {}
+
+  /// Called when the goal stops.
+  void stop() {}
+}
+
 /// Base class for custom AI goals defined in Dart.
+///
+/// **Legacy API** - This is the singleton pattern where one goal instance
+/// handles all entities. For new code, prefer using [Goal] with
+/// [CustomGoalFactory] which gives each entity its own goal instance.
+///
+/// With the singleton pattern, you must manually track per-entity state:
+/// ```dart
+/// class MyGoal extends CustomGoal {
+///   static final Map<int, MyState> _states = {};  // Manual state tracking
+///
+///   @override
+///   void start(int entityId) {
+///     _states[entityId] = MyState();
+///   }
+///
+///   @override
+///   void stop(int entityId) {
+///     _states.remove(entityId);  // Don't forget cleanup!
+///   }
+/// }
+/// ```
 abstract class CustomGoal {
   /// Unique identifier for this goal type
   final String id;
