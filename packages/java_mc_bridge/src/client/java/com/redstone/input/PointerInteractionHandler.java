@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Handles pointer interaction with FlutterDisplay entities in the 3D world.
@@ -78,6 +80,157 @@ public class PointerInteractionHandler {
     // Throttling for pointer events to reduce lag
     private static long lastPointerEventTime = 0;
     private static final long POINTER_EVENT_MIN_INTERVAL_MS = 16; // ~60 FPS max
+
+    // Pending key event - buffered so we can attach the character from charTyped
+    // GLFW fires keyPress first, then charTyped for printable keys.
+    // We defer sending key down events until charTyped arrives (or we get another key event).
+    private static boolean hasPendingKeyEvent = false;
+    private static int pendingType;
+    private static long pendingPhysicalKey;
+    private static long pendingLogicalKey;
+    private static int pendingModifiers;
+
+    // ==========================================================================
+    // GLFW to Flutter Key Mapping
+    // ==========================================================================
+
+    // Flutter physical keys use USB HID usage codes with format 0x000700XX
+    private static final long USB_HID_PREFIX = 0x00070000L;
+
+    // Flutter logical key planes
+    private static final long UNICODE_PLANE    = 0x00000000000L;
+    private static final long UNPRINTABLE_PLANE = 0x00100000000L;
+    private static final long FLUTTER_PLANE     = 0x00200000000L;
+
+    // GLFW key code -> Flutter physical key (USB HID)
+    private static final Map<Integer, Long> GLFW_TO_PHYSICAL = new HashMap<>();
+    // GLFW key code -> Flutter logical key
+    private static final Map<Integer, Long> GLFW_TO_LOGICAL = new HashMap<>();
+
+    static {
+        // Letters A-Z: GLFW 65-90 -> USB HID 0x04-0x1D
+        for (int i = 0; i < 26; i++) {
+            GLFW_TO_PHYSICAL.put(65 + i, USB_HID_PREFIX | (0x04 + i));
+            // Logical: lowercase Unicode code point (a=0x61, b=0x62, ...)
+            GLFW_TO_LOGICAL.put(65 + i, UNICODE_PLANE | (0x61 + i));
+        }
+
+        // Digits 1-9: GLFW 49-57 -> USB HID 0x1E-0x26
+        for (int i = 0; i < 9; i++) {
+            GLFW_TO_PHYSICAL.put(49 + i, USB_HID_PREFIX | (0x1E + i));
+            // Logical: Unicode code point for '1'-'9'
+            GLFW_TO_LOGICAL.put(49 + i, UNICODE_PLANE | (0x31 + i));
+        }
+        // Digit 0: GLFW 48 -> USB HID 0x27
+        GLFW_TO_PHYSICAL.put(48, USB_HID_PREFIX | 0x27);
+        GLFW_TO_LOGICAL.put(48, UNICODE_PLANE | 0x30);
+
+        // Special keys
+        mapKey(32,  0x2C, UNICODE_PLANE | 0x20);          // Space
+        mapKey(257, 0x28, UNPRINTABLE_PLANE | 0x0D);      // Enter
+        mapKey(256, 0x29, UNPRINTABLE_PLANE | 0x1B);      // Escape
+        mapKey(259, 0x2A, UNPRINTABLE_PLANE | 0x08);      // Backspace
+        mapKey(258, 0x2B, UNPRINTABLE_PLANE | 0x09);      // Tab
+        mapKey(261, 0x4C, UNPRINTABLE_PLANE | 0x7F);      // Delete
+
+        // Punctuation / symbols
+        mapKey(45,  0x2D, UNICODE_PLANE | 0x2D); // Minus
+        mapKey(61,  0x2E, UNICODE_PLANE | 0x3D); // Equal
+        mapKey(91,  0x2F, UNICODE_PLANE | 0x5B); // BracketLeft
+        mapKey(93,  0x30, UNICODE_PLANE | 0x5D); // BracketRight
+        mapKey(92,  0x31, UNICODE_PLANE | 0x5C); // Backslash
+        mapKey(59,  0x33, UNICODE_PLANE | 0x3B); // Semicolon
+        mapKey(39,  0x34, UNICODE_PLANE | 0x27); // Quote/Apostrophe
+        mapKey(96,  0x35, UNICODE_PLANE | 0x60); // Backquote/GraveAccent
+        mapKey(44,  0x36, UNICODE_PLANE | 0x2C); // Comma
+        mapKey(46,  0x37, UNICODE_PLANE | 0x2E); // Period
+        mapKey(47,  0x38, UNICODE_PLANE | 0x2F); // Slash
+
+        // Lock keys
+        mapKey(280, 0x39, UNPRINTABLE_PLANE | 0x104); // CapsLock
+        mapKey(281, 0x47, UNPRINTABLE_PLANE | 0x10C); // ScrollLock
+        mapKey(282, 0x53, UNPRINTABLE_PLANE | 0x10A); // NumLock
+
+        // Function keys F1-F12: GLFW 290-301 -> USB HID 0x3A-0x45
+        for (int i = 0; i < 12; i++) {
+            GLFW_TO_PHYSICAL.put(290 + i, USB_HID_PREFIX | (0x3A + i));
+            GLFW_TO_LOGICAL.put(290 + i, UNPRINTABLE_PLANE | (0x801 + i));
+        }
+        // F13-F24: GLFW 302-313 -> USB HID 0x68-0x73
+        for (int i = 0; i < 12; i++) {
+            GLFW_TO_PHYSICAL.put(302 + i, USB_HID_PREFIX | (0x68 + i));
+            GLFW_TO_LOGICAL.put(302 + i, UNPRINTABLE_PLANE | (0x80D + i));
+        }
+        // F25: GLFW 314 -> USB HID 0x74
+        GLFW_TO_PHYSICAL.put(314, USB_HID_PREFIX | 0x74);
+        GLFW_TO_LOGICAL.put(314, UNPRINTABLE_PLANE | 0x819);
+
+        // Navigation keys
+        mapKey(283, 0x46, UNPRINTABLE_PLANE | 0x608); // PrintScreen
+        mapKey(284, 0x48, UNPRINTABLE_PLANE | 0x509); // Pause
+        mapKey(260, 0x49, UNPRINTABLE_PLANE | 0x407); // Insert
+        mapKey(268, 0x4A, UNPRINTABLE_PLANE | 0x306); // Home
+        mapKey(266, 0x4B, UNPRINTABLE_PLANE | 0x308); // PageUp
+        mapKey(269, 0x4D, UNPRINTABLE_PLANE | 0x305); // End
+        mapKey(267, 0x4E, UNPRINTABLE_PLANE | 0x307); // PageDown
+
+        // Arrow keys
+        mapKey(262, 0x4F, UNPRINTABLE_PLANE | 0x303); // Right
+        mapKey(263, 0x50, UNPRINTABLE_PLANE | 0x302); // Left
+        mapKey(264, 0x51, UNPRINTABLE_PLANE | 0x301); // Down
+        mapKey(265, 0x52, UNPRINTABLE_PLANE | 0x304); // Up
+
+        // Numpad keys
+        mapKey(331, 0x54, FLUTTER_PLANE | 0x22F); // KP Divide
+        mapKey(332, 0x55, FLUTTER_PLANE | 0x22A); // KP Multiply
+        mapKey(333, 0x56, FLUTTER_PLANE | 0x22D); // KP Subtract
+        mapKey(334, 0x57, FLUTTER_PLANE | 0x22B); // KP Add
+        mapKey(335, 0x58, FLUTTER_PLANE | 0x20D); // KP Enter
+        for (int i = 0; i < 10; i++) {
+            // KP 0-9: GLFW 320-329 -> USB HID 0x62,0x59-0x61
+            int hidCode = (i == 0) ? 0x62 : (0x59 + i - 1);
+            GLFW_TO_PHYSICAL.put(320 + i, USB_HID_PREFIX | hidCode);
+            GLFW_TO_LOGICAL.put(320 + i, FLUTTER_PLANE | (0x230 + i));
+        }
+        mapKey(330, 0x63, FLUTTER_PLANE | 0x22E); // KP Decimal
+        mapKey(336, 0x67, FLUTTER_PLANE | 0x23D); // KP Equal
+
+        // Modifier keys
+        mapKey(340, 0xE1, FLUTTER_PLANE | 0x102); // Left Shift
+        mapKey(341, 0xE0, FLUTTER_PLANE | 0x100); // Left Control
+        mapKey(342, 0xE2, FLUTTER_PLANE | 0x104); // Left Alt
+        mapKey(343, 0xE3, FLUTTER_PLANE | 0x106); // Left Super/Meta
+        mapKey(344, 0xE5, FLUTTER_PLANE | 0x103); // Right Shift
+        mapKey(345, 0xE4, FLUTTER_PLANE | 0x101); // Right Control
+        mapKey(346, 0xE6, FLUTTER_PLANE | 0x105); // Right Alt
+        mapKey(347, 0xE7, FLUTTER_PLANE | 0x107); // Right Super/Meta
+        mapKey(348, 0x76, UNPRINTABLE_PLANE | 0x505); // Menu
+    }
+
+    private static void mapKey(int glfwKey, int usbHid, long logicalKey) {
+        GLFW_TO_PHYSICAL.put(glfwKey, USB_HID_PREFIX | usbHid);
+        GLFW_TO_LOGICAL.put(glfwKey, logicalKey);
+    }
+
+    /**
+     * Convert a GLFW key code to Flutter physical key (USB HID).
+     */
+    private static long glfwToPhysicalKey(int glfwKey) {
+        Long physical = GLFW_TO_PHYSICAL.get(glfwKey);
+        if (physical != null) return physical;
+        // Fallback: use GLFW plane for unknown keys
+        return 0x01800000000L | glfwKey;
+    }
+
+    /**
+     * Convert a GLFW key code to Flutter logical key.
+     */
+    private static long glfwToLogicalKey(int glfwKey) {
+        Long logical = GLFW_TO_LOGICAL.get(glfwKey);
+        if (logical != null) return logical;
+        // Fallback: use GLFW plane for unknown keys
+        return 0x01800000000L | glfwKey;
+    }
 
     /**
      * Check if we're currently locked to an entity.
@@ -199,6 +352,10 @@ public class PointerInteractionHandler {
      */
     public static void tick() {
         if (!isLocked()) return;
+
+        // Flush any pending key event that didn't get a charTyped callback
+        // (non-printable keys like arrows, function keys, etc.)
+        flushPendingKeyEvent(null);
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
@@ -548,30 +705,65 @@ public class PointerInteractionHandler {
     public static void handleKeyEvent(int key, int scancode, int action, int modifiers) {
         if (!isLocked()) return;
 
-        LOGGER.debug("Key event: key={}, action={}, modifiers={}", key, action, modifiers);
+        LOGGER.info("Key event: key={}, action={}, modifiers={}", key, action, modifiers);
+
+        // Flush any pending key event first (it didn't get a character)
+        flushPendingKeyEvent(null);
 
         // Map GLFW action to Flutter event type
-        // Flutter types: 0=down, 1=up, 2=repeat
+        // Flutter embedder types from flutter_embedder.h:
+        //   kFlutterKeyEventTypeUp = 1
+        //   kFlutterKeyEventTypeDown = 2
+        //   kFlutterKeyEventTypeRepeat = 3
         int type;
         if (action == 1) {
-            type = 0; // GLFW_PRESS -> Flutter down
+            type = 2; // GLFW_PRESS -> kFlutterKeyEventTypeDown
         } else if (action == 0) {
-            type = 1; // GLFW_RELEASE -> Flutter up
+            type = 1; // GLFW_RELEASE -> kFlutterKeyEventTypeUp
         } else {
-            type = 2; // GLFW_REPEAT -> Flutter repeat
+            type = 3; // GLFW_REPEAT -> kFlutterKeyEventTypeRepeat
         }
 
-        // Use GLFW key code as both physical and logical key for simplicity
-        // A proper implementation would map GLFW codes to Flutter's logical key system
-        long physicalKey = key;
-        long logicalKey = key;
+        // Map GLFW key codes to Flutter's expected encoding:
+        // Physical = USB HID usage code (0x000700XX)
+        // Logical = Unicode code point (printable) or plane-prefixed ID (non-printable)
+        long physicalKey = glfwToPhysicalKey(key);
+        long logicalKey = glfwToLogicalKey(key);
 
+        // For key down and repeat events, buffer the event so we can attach
+        // the character from the subsequent charTyped callback.
+        // GLFW fires keyPress first, then charTyped for printable keys.
+        if (type == 2 || type == 3) { // Down or Repeat
+            hasPendingKeyEvent = true;
+            pendingType = type;
+            pendingPhysicalKey = physicalKey;
+            pendingLogicalKey = logicalKey;
+            pendingModifiers = modifiers;
+        } else {
+            // Key up events: send immediately with no character
+            sendKeyToFlutter(type, physicalKey, logicalKey, null, modifiers);
+        }
+    }
+
+    /**
+     * Flush the pending key event, optionally attaching a character.
+     */
+    private static void flushPendingKeyEvent(String character) {
+        if (!hasPendingKeyEvent) return;
+        hasPendingKeyEvent = false;
+        sendKeyToFlutter(pendingType, pendingPhysicalKey, pendingLogicalKey, character, pendingModifiers);
+    }
+
+    /**
+     * Send a key event to the appropriate Flutter surface.
+     */
+    private static void sendKeyToFlutter(int type, long physicalKey, long logicalKey, String character, int modifiers) {
+        LOGGER.info("Sending key to Flutter: type={}, physical=0x{}, logical=0x{}, char='{}', surface={}",
+            type, Long.toHexString(physicalKey), Long.toHexString(logicalKey), character, lockedSurfaceId);
         if (lockedSurfaceId == 0) {
-            // Main surface
-            DartBridgeClient.sendKeyEvent(type, physicalKey, logicalKey, null, modifiers);
+            DartBridgeClient.sendKeyEvent(type, physicalKey, logicalKey, character, modifiers);
         } else if (lockedSurfaceId > 0) {
-            // Routed surface
-            DartBridgeClient.sendSurfaceKeyEvent(lockedSurfaceId, type, physicalKey, logicalKey, null, modifiers);
+            DartBridgeClient.sendSurfaceKeyEvent(lockedSurfaceId, type, physicalKey, logicalKey, character, modifiers);
         }
     }
 
@@ -579,22 +771,20 @@ public class PointerInteractionHandler {
      * Handle character input when locked.
      * This is for text input (Unicode characters typed).
      *
+     * Character events come from GLFW's charTyped callback, which only fires for
+     * character-producing key presses. We ignore these and let the character be
+     * derived from the key down event instead, as Flutter's key event system
+     * handles character generation internally based on the logical key.
+     *
      * @param codePoint Unicode code point of the character
      */
     public static void handleCharEvent(int codePoint) {
         if (!isLocked()) return;
 
+        // GLFW fires charTyped right after keyPress for printable keys.
+        // We have a pending key event buffered - flush it now with the character attached.
         String character = new String(Character.toChars(codePoint));
-        LOGGER.debug("Char event: codePoint={}, char='{}'", codePoint, character);
-
-        // Character input is sent as a key down event with the character
-        // Using codePoint as both physical and logical key
-        if (lockedSurfaceId == 0) {
-            // Main surface
-            DartBridgeClient.sendKeyEvent(0, codePoint, codePoint, character, 0);
-        } else if (lockedSurfaceId > 0) {
-            // Routed surface
-            DartBridgeClient.sendSurfaceKeyEvent(lockedSurfaceId, 0, codePoint, codePoint, character, 0);
-        }
+        LOGGER.info("Char event: codePoint={}, char='{}', hasPending={}", codePoint, character, hasPendingKeyEvent);
+        flushPendingKeyEvent(character);
     }
 }

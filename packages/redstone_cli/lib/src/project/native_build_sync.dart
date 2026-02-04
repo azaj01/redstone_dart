@@ -93,13 +93,13 @@ class NativeBuildSync {
 
     final fileHashes = <String>[];
 
-    // Get all .cpp and .h files recursively and sort for determinism
+    // Get all native source files recursively and sort for determinism
     final files = srcDir
         .listSync(recursive: true)
         .whereType<File>()
         .where((f) {
           final ext = p.extension(f.path).toLowerCase();
-          return ext == '.cpp' || ext == '.h' || ext == '.c' || ext == '.hpp';
+          return ext == '.cpp' || ext == '.h' || ext == '.c' || ext == '.hpp' || ext == '.mm' || ext == '.m';
         })
         .toList()
       ..sort((a, b) => a.path.compareTo(b.path));

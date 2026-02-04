@@ -1033,14 +1033,19 @@ void dart_client_send_key_event(int32_t type, int64_t physical_key, int64_t logi
 
     FlutterKeyEvent event = {};
     event.struct_size = sizeof(FlutterKeyEvent);
-    event.timestamp = static_cast<double>(FlutterEngineGetCurrentTime()) / 1000000000.0;
+    event.timestamp = static_cast<double>(FlutterEngineGetCurrentTime()) / 1000.0;
     event.type = static_cast<FlutterKeyEventType>(type);
     event.physical = physical_key;
     event.logical = logical_key;
-    event.character = character;
+    // Character must be null for key up events (kFlutterKeyEventTypeUp = 1)
+    // Flutter asserts this in KeyEventManager._eventFromData
+    event.character = (type == 1) ? nullptr : character;
     event.synthesized = false;
+    event.device_type = kFlutterKeyEventDeviceTypeKeyboard;
 
-    FlutterEngineSendKeyEvent(g_client_engine, &event, nullptr, nullptr);
+    // Provide a callback - Flutter may require this to properly dispatch key events to the framework
+    auto key_callback = [](bool handled, void* user_data) {};
+    FlutterEngineSendKeyEvent(g_client_engine, &event, key_callback, nullptr);
 }
 
 // ==========================================================================

@@ -119,7 +119,8 @@ static FlutterSurface* GetSurface(int64_t surface_id) {
 static bool SurfaceTaskRunnerRunsOnCurrentThread(void* user_data) {
     auto* surface = static_cast<FlutterSurface*>(user_data);
     if (!surface) return false;
-    return std::this_thread::get_id() == surface->platform_thread_id;
+    bool result = std::this_thread::get_id() == surface->platform_thread_id;
+    return result;
 }
 
 static void SurfaceTaskRunnerPostTask(FlutterTask task, uint64_t target_time, void* user_data) {
@@ -809,21 +810,101 @@ extern "C" void multi_surface_send_pointer_event(int64_t surface_id, int32_t pha
 extern "C" void multi_surface_send_key_event(int64_t surface_id, int32_t type,
                                                int64_t physical_key, int64_t logical_key,
                                                const char* character, int32_t modifiers) {
-    std::lock_guard<std::mutex> lock(g_surfaces_mutex);
+    FlutterSurface* surface = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_surfaces_mutex);
+        surface = GetSurface(surface_id);
+    }
 
-    auto* surface = GetSurface(surface_id);
     if (!surface || surface->engine == nullptr) return;
 
     FlutterKeyEvent event = {};
     event.struct_size = sizeof(FlutterKeyEvent);
-    event.timestamp = static_cast<double>(FlutterEngineGetCurrentTime()) / 1000000000.0;
+    event.timestamp = static_cast<double>(FlutterEngineGetCurrentTime()) / 1000.0;
     event.type = static_cast<FlutterKeyEventType>(type);
     event.physical = physical_key;
     event.logical = logical_key;
-    event.character = character;
+    // Character must be null for key up events (kFlutterKeyEventTypeUp = 1)
+    // Flutter asserts this in KeyEventManager._eventFromData
+    event.character = (type == 1) ? nullptr : character;
     event.synthesized = false;
+    event.device_type = kFlutterKeyEventDeviceTypeKeyboard;
 
-    FlutterEngineSendKeyEvent(surface->engine, &event, nullptr, nullptr);
+    FlutterEngineResult result = FlutterEngineSendKeyEvent(surface->engine, &event, nullptr, nullptr);
+
+    if (result != kSuccess) {
+        std::cerr << "[multi_surface] FlutterEngineSendKeyEvent FAILED for surface " << surface_id
+                  << " result=" << result << std::endl;
+        return;
+    }
+
+    // Send companion raw key event on flutter/keyevent channel.
+    // Flutter's KeyEventManager operates in keyDataThenRawKeyData transit mode,
+    // which POSTPONES key data events until a corresponding raw key event arrives.
+    // FlutterEngineSendKeyEvent only sends on flutter/keydata, so we must also
+    // send on flutter/keyevent to trigger the flush of postponed events.
+    {
+        const char* type_str = (type == 1) ? "keyup" : "keydown";
+        const char* char_str = (character && type != 1) ? character : "";
+
+        char json_buf[512];
+        snprintf(json_buf, sizeof(json_buf),
+            "{\"keymap\":\"macos\",\"type\":\"%s\",\"keyCode\":%lld,"
+            "\"modifiers\":%d,\"characters\":\"%s\","
+            "\"charactersIgnoringModifiers\":\"%s\"}",
+            type_str,
+            (long long)physical_key,
+            modifiers,
+            char_str,
+            char_str);
+
+        FlutterPlatformMessage raw_key_msg = {};
+        raw_key_msg.struct_size = sizeof(FlutterPlatformMessage);
+        raw_key_msg.channel = "flutter/keyevent";
+        raw_key_msg.message = reinterpret_cast<const uint8_t*>(json_buf);
+        raw_key_msg.message_size = strlen(json_buf);
+        raw_key_msg.response_handle = nullptr;
+        FlutterEngineSendPlatformMessage(surface->engine, &raw_key_msg);
+    }
+
+    // Immediately process pending tasks to deliver key events to Dart without
+    // waiting for the next game tick's task processing cycle.
+    {
+        std::queue<std::pair<FlutterTask, uint64_t>> tasks_to_run;
+        {
+            std::lock_guard<std::mutex> task_lock(surface->task_mutex);
+            std::swap(tasks_to_run, surface->pending_tasks);
+        }
+        uint64_t current_time = FlutterEngineGetCurrentTime();
+        while (!tasks_to_run.empty()) {
+            auto& task_pair = tasks_to_run.front();
+            if (task_pair.second <= current_time) {
+                FlutterEngineRunTask(surface->engine, &task_pair.first);
+            } else {
+                std::lock_guard<std::mutex> task_lock(surface->task_mutex);
+                surface->pending_tasks.push(task_pair);
+            }
+            tasks_to_run.pop();
+        }
+
+        // Second pass: tasks posted during the first pass (e.g. key event responses)
+        {
+            std::lock_guard<std::mutex> task_lock(surface->task_mutex);
+            if (!surface->pending_tasks.empty()) {
+                std::swap(tasks_to_run, surface->pending_tasks);
+            }
+        }
+        while (!tasks_to_run.empty()) {
+            auto& task_pair = tasks_to_run.front();
+            if (task_pair.second <= current_time + 1000000) {  // 1ms grace
+                FlutterEngineRunTask(surface->engine, &task_pair.first);
+            } else {
+                std::lock_guard<std::mutex> task_lock(surface->task_mutex);
+                surface->pending_tasks.push(task_pair);
+            }
+            tasks_to_run.pop();
+        }
+    }
 }
 
 #endif // __APPLE__

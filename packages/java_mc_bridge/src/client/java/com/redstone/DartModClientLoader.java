@@ -66,6 +66,7 @@ import java.nio.file.Path;
 @Environment(EnvType.CLIENT)
 public class DartModClientLoader implements ClientModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("DartModClientLoader");
+    private static boolean surfaceTaskErrorLogged = false;
 
     // ==========================================================================
     // Path Helper Methods for Flutter Client Runtime
@@ -340,7 +341,11 @@ public class DartModClientLoader implements ClientModInitializer {
             try {
                 DartBridgeClient.processAllSurfaceTasks();
             } catch (UnsatisfiedLinkError e) {
-                // Multi-surface API not available - ignore
+                // Multi-surface API not available - log once
+                if (!surfaceTaskErrorLogged) {
+                    LOGGER.warn("processAllSurfaceTasks UnsatisfiedLinkError: {}", e.getMessage());
+                    surfaceTaskErrorLogged = true;
+                }
             }
             // Check if player is looking at a container and pre-warm if so
             ContainerPrewarmManager.tick();
