@@ -11,10 +11,14 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.redstone.DartBridge;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.*;
+import net.minecraft.commands.arguments.blocks.BlockStateArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -33,6 +37,7 @@ public class CommandRegistry {
     private static final Logger LOGGER = LoggerFactory.getLogger("CommandRegistry");
     private static final Gson GSON = new Gson();
     private static final Map<Long, CommandDef> commands = new HashMap<>();
+    private static CommandBuildContext buildContext = null;
     private static boolean initialized = false;
 
     /**
@@ -85,6 +90,7 @@ public class CommandRegistry {
         if (initialized) return;
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            buildContext = registryAccess;
             // Register all pending commands
             for (CommandDef cmd : commands.values()) {
                 registerWithDispatcher(dispatcher, cmd);
@@ -194,10 +200,18 @@ public class CommandRegistry {
             case "bool_" -> Commands.argument(name, BoolArgumentType.bool());
             case "player" -> Commands.argument(name, EntityArgument.player());
             case "position" -> Commands.argument(name, BlockPosArgument.blockPos());
-            // TODO: BlockStateArgument and ItemArgument require CommandBuildContext in 1.21.x
-            // For now, fall back to string arguments - users should provide block/item IDs as strings
-            case "block" -> Commands.argument(name, StringArgumentType.string());
-            case "item" -> Commands.argument(name, StringArgumentType.string());
+            case "block" -> {
+                if (buildContext != null) {
+                    yield Commands.argument(name, BlockStateArgument.block(buildContext));
+                }
+                yield Commands.argument(name, StringArgumentType.string());
+            }
+            case "item" -> {
+                if (buildContext != null) {
+                    yield Commands.argument(name, ItemArgument.item(buildContext));
+                }
+                yield Commands.argument(name, StringArgumentType.string());
+            }
             case "greedyString" -> Commands.argument(name, StringArgumentType.greedyString());
             default -> Commands.argument(name, StringArgumentType.string());
         };
@@ -245,7 +259,31 @@ public class CommandRegistry {
      */
     private static Object getArgumentValue(CommandContext<CommandSourceStack> context, String name, String type) {
         return switch (type) {
-            case "string", "greedyString", "block", "item" -> StringArgumentType.getString(context, name);
+            case "string", "greedyString" -> StringArgumentType.getString(context, name);
+            case "block" -> {
+                if (buildContext != null) {
+                    try {
+                        var blockInput = BlockStateArgument.getBlock(context, name);
+                        yield BuiltInRegistries.BLOCK.getKey(blockInput.getState().getBlock()).toString();
+                    } catch (Exception e) {
+                        yield null;
+                    }
+                } else {
+                    yield StringArgumentType.getString(context, name);
+                }
+            }
+            case "item" -> {
+                if (buildContext != null) {
+                    try {
+                        var itemInput = ItemArgument.getItem(context, name);
+                        yield BuiltInRegistries.ITEM.getKey(itemInput.getItem()).toString();
+                    } catch (Exception e) {
+                        yield null;
+                    }
+                } else {
+                    yield StringArgumentType.getString(context, name);
+                }
+            }
             case "integer" -> IntegerArgumentType.getInteger(context, name);
             case "double_" -> DoubleArgumentType.getDouble(context, name);
             case "bool_" -> BoolArgumentType.getBool(context, name);

@@ -28,6 +28,9 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.food.FoodData;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.gamerules.GameRule;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.item.Item;
@@ -3265,25 +3268,26 @@ public class DartBridge {
 
     /**
      * Get spawn point as "x,y,z" string.
-     * Note: Spawn point API has changed significantly - this is a stub.
      */
     public static String getSpawnPoint(String dimension) {
         if (serverInstance == null) return "";
-        // TODO: Spawn point API has changed in newer MC versions
-        // Need to use RespawnData or similar new API
-        LOGGER.debug("getSpawnPoint not fully implemented");
-        return "0,64,0"; // Default fallback
+        ServerLevel level = getServerLevel(dimension);
+        if (level == null) return "";
+
+        LevelData.RespawnData respawnData = level.getRespawnData();
+        BlockPos spawn = respawnData.pos();
+        return spawn.getX() + "," + spawn.getY() + "," + spawn.getZ();
     }
 
     /**
      * Set spawn point.
-     * Note: Spawn point API has changed significantly - this is a stub.
      */
     public static void setSpawnPoint(String dimension, int x, int y, int z) {
         if (serverInstance == null) return;
-        // TODO: Spawn point API has changed in newer MC versions
-        // Need to use RespawnData or similar new API
-        LOGGER.debug("setSpawnPoint not fully implemented for position: {}, {}, {}", x, y, z);
+        ServerLevel level = getServerLevel(dimension);
+        if (level == null) return;
+
+        level.setRespawnData(LevelData.RespawnData.of(level.dimension(), new BlockPos(x, y, z), 0.0f, 0.0f));
     }
 
     // --------------------------------------------------------------------------
@@ -3316,34 +3320,111 @@ public class DartBridge {
     // Game Rules
     // --------------------------------------------------------------------------
 
+    // Mapping from legacy camelCase game rule names to 1.21.x snake_case names.
+    private static final Map<String, String> LEGACY_GAME_RULE_NAMES = Map.ofEntries(
+        Map.entry("doDaylightCycle", "advance_time"),
+        Map.entry("doWeatherCycle", "advance_weather"),
+        Map.entry("keepInventory", "keep_inventory"),
+        Map.entry("doMobSpawning", "spawn_mobs"),
+        Map.entry("mobGriefing", "mob_griefing"),
+        Map.entry("randomTickSpeed", "random_tick_speed"),
+        Map.entry("doFireTick", "fire_damage"),
+        Map.entry("doEntityDrops", "entity_drops"),
+        Map.entry("doTileDrops", "block_drops"),
+        Map.entry("naturalRegeneration", "natural_health_regeneration"),
+        Map.entry("showDeathMessages", "show_death_messages"),
+        Map.entry("doInsomnia", "spawn_phantoms"),
+        Map.entry("doPatrolSpawning", "spawn_patrols"),
+        Map.entry("doTraderSpawning", "spawn_wandering_traders"),
+        Map.entry("doWardenSpawning", "spawn_wardens"),
+        Map.entry("forgiveDeadPlayers", "forgive_dead_players"),
+        Map.entry("universalAnger", "universal_anger"),
+        Map.entry("maxEntityCramming", "max_entity_cramming"),
+        Map.entry("reducedDebugInfo", "reduced_debug_info"),
+        Map.entry("sendCommandFeedback", "send_command_feedback"),
+        Map.entry("logAdminCommands", "log_admin_commands"),
+        Map.entry("commandBlockOutput", "command_block_output"),
+        Map.entry("showAdvancementMessages", "show_advancement_messages"),
+        Map.entry("playersSleepingPercentage", "players_sleeping_percentage"),
+        Map.entry("doImmediateRespawn", "immediate_respawn"),
+        Map.entry("spectatorsGenerateChunks", "spectators_generate_chunks"),
+        Map.entry("maxCommandChainLength", "max_command_sequence_length"),
+        Map.entry("tntExplodes", "tnt_explodes"),
+        Map.entry("disableRaids", "raids"), // Note: inverted semantics
+        Map.entry("lavaSourceConversion", "lava_source_conversion"),
+        Map.entry("waterSourceConversion", "water_source_conversion"),
+        Map.entry("snowAccumulationHeight", "max_snow_accumulation_height"),
+        Map.entry("blockExplosionDropDecay", "block_explosion_drop_decay"),
+        Map.entry("mobExplosionDropDecay", "mob_explosion_drop_decay"),
+        Map.entry("tntExplosionDropDecay", "tnt_explosion_drop_decay"),
+        Map.entry("commandBlocksEnabled", "command_blocks_work"),
+        Map.entry("doLimitedCrafting", "limited_crafting"),
+        Map.entry("projectilesCanBreakBlocks", "projectiles_can_break_blocks"),
+        Map.entry("enderPearlsVanishOnDeath", "ender_pearls_vanish_on_death"),
+        Map.entry("globalSoundEvents", "global_sound_events"),
+        Map.entry("spawnerBlocksWork", "spawner_blocks_work")
+    );
+
     /**
-     * Get a game rule value.
-     * Note: GameRules API has changed - this is a stub implementation.
+     * Resolve a game rule name (camelCase or snake_case) to a GameRule instance.
      */
+    @SuppressWarnings("unchecked")
+    private static GameRule<?> resolveGameRule(String name) {
+        // Try direct registry lookup first (handles snake_case names)
+        Optional<GameRule<?>> opt = BuiltInRegistries.GAME_RULE.getOptional(Identifier.parse(name));
+        if (opt.isPresent()) return opt.get();
+
+        // Try legacy camelCase mapping
+        String mapped = LEGACY_GAME_RULE_NAMES.get(name);
+        if (mapped != null) {
+            opt = BuiltInRegistries.GAME_RULE.getOptional(Identifier.parse(mapped));
+            if (opt.isPresent()) return opt.get();
+        }
+
+        // Try converting camelCase to snake_case as fallback
+        String snakeCase = name.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase(Locale.ROOT);
+        opt = BuiltInRegistries.GAME_RULE.getOptional(Identifier.parse(snakeCase));
+        if (opt.isPresent()) return opt.get();
+
+        return null;
+    }
+
+    /**
+     * Get a game rule value by name.
+     */
+    @SuppressWarnings("unchecked")
     public static String getGameRule(String dimension, String rule) {
         if (serverInstance == null) return "";
         ServerLevel level = getServerLevel(dimension);
         if (level == null) return "";
 
-        // TODO: GameRules API has changed in newer MC versions
-        // For now, return empty string as a safe fallback
-        // Full implementation would need to use the new GameRules API
-        LOGGER.debug("getGameRule not fully implemented for rule: {}", rule);
-        return "";
+        GameRule<?> gameRule = resolveGameRule(rule);
+        if (gameRule == null) {
+            LOGGER.warn("Unknown game rule: {}", rule);
+            return "";
+        }
+
+        GameRules rules = level.getGameRules();
+        return rules.getAsString(gameRule);
     }
 
     /**
-     * Set a game rule value.
-     * Note: GameRules API has changed - this is a stub implementation.
+     * Set a game rule value by name.
      */
-    public static void setGameRule(String dimension, String rule, String value) {
+    @SuppressWarnings("unchecked")
+    public static <T> void setGameRule(String dimension, String rule, String value) {
         if (serverInstance == null) return;
         ServerLevel level = getServerLevel(dimension);
         if (level == null) return;
 
-        // TODO: GameRules API has changed in newer MC versions
-        // For now, log and skip
-        LOGGER.debug("setGameRule not fully implemented for rule: {} = {}", rule, value);
+        GameRule<T> gameRule = (GameRule<T>) resolveGameRule(rule);
+        if (gameRule == null) {
+            LOGGER.warn("Unknown game rule: {}", rule);
+            return;
+        }
+
+        GameRules rules = level.getGameRules();
+        gameRule.deserialize(value).ifSuccess(val -> rules.set(gameRule, val, serverInstance));
     }
 
     // ==========================================================================
