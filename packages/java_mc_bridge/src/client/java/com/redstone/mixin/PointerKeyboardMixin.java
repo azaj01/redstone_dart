@@ -36,10 +36,15 @@ public class PointerKeyboardMixin {
             int scancode = keyEvent.scancode();
             int modifiers = keyEvent.modifiers();
 
-            // Allow Escape to release the lock (handled by Minecraft's normal flow)
-            // GLFW_KEY_ESCAPE = 256
-            if (key == 256) {
-                return; // Let Minecraft handle Escape normally
+            // GLFW_KEY_ESCAPE = 256, GLFW_PRESS = 1
+            // Unlock immediately on ESC press, before Minecraft opens the pause screen.
+            // Previously we let ESC pass through and relied on tick() to detect
+            // mc.screen != null, but that caused a race condition where the mouse
+            // state was corrupted by the time the lock was released.
+            if (key == 256 && action == 1) {
+                PointerInteractionHandler.unlock();
+                ci.cancel(); // Don't open pause menu, just unlock
+                return;
             }
 
             // Route key event to Flutter surface

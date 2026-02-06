@@ -20,6 +20,7 @@ class AssetGenerator {
     final items = manifest['items'] as List<dynamic>? ?? [];
     final entities = manifest['entities'] as List<dynamic>? ?? [];
     final oreFeatures = manifest['ore_features'] as List<dynamic>? ?? [];
+    final dimensions = manifest['dimensions'] as List<dynamic>? ?? [];
 
     for (final block in blocks) {
       await _generateBlockAssets(block as Map<String, dynamic>);
@@ -36,6 +37,11 @@ class AssetGenerator {
     // Generate worldgen assets for ore features
     for (final oreFeature in oreFeatures) {
       await _generateOreFeatureAssets(oreFeature as Map<String, dynamic>);
+    }
+
+    // Generate dimension data pack files
+    for (final dimension in dimensions) {
+      await _generateDimensionAssets(dimension as Map<String, dynamic>);
     }
 
     await _copyTextures();
@@ -561,6 +567,53 @@ class AssetGenerator {
       '$featureName.json',
     );
     await _writeJson(path, placedFeature);
+  }
+
+  /// Generate data pack JSON files for a custom dimension.
+  ///
+  /// Creates:
+  /// - data/<namespace>/dimension/<path>.json — the dimension definition
+  /// - data/<namespace>/dimension_type/<path>.json — the dimension type
+  Future<void> _generateDimensionAssets(Map<String, dynamic> dimension) async {
+    final id = dimension['id'] as String; // e.g., 'mymod:mining_dimension'
+    final namespace = id.split(':')[0];
+    final dimName = id.split(':')[1];
+
+    final typeJson = dimension['type'] as Map<String, dynamic>;
+    final generatorJson = dimension['generator'] as Map<String, dynamic>;
+
+    // Generate dimension_type JSON
+    final dimensionTypePath = p.join(
+      project.minecraftDir,
+      'src',
+      'main',
+      'resources',
+      'data',
+      namespace,
+      'dimension_type',
+      '$dimName.json',
+    );
+    await _writeJson(dimensionTypePath, typeJson);
+
+    // Generate dimension JSON (references the dimension type and includes generator)
+    final dimensionJson = <String, dynamic>{
+      'type': '$namespace:$dimName',
+      'generator': generatorJson,
+    };
+
+    final dimensionPath = p.join(
+      project.minecraftDir,
+      'src',
+      'main',
+      'resources',
+      'data',
+      namespace,
+      'dimension',
+      '$dimName.json',
+    );
+    await _writeJson(dimensionPath, dimensionJson);
+
+    print('Generated dimension assets for $id');
   }
 
   Future<void> _copyTextures() async {

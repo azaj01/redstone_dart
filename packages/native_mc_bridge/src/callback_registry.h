@@ -117,6 +117,16 @@ public:
         player_respawn_handler_ = cb;
     }
 
+    void setPlayerChangeDimensionHandler(PlayerChangeDimensionCallback cb) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        player_change_dimension_handler_ = cb;
+    }
+
+    void setEntityChangeDimensionHandler(EntityChangeDimensionCallback cb) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        entity_change_dimension_handler_ = cb;
+    }
+
     void setPlayerDeathHandler(PlayerDeathCallback cb) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         player_death_handler_ = cb;
@@ -495,6 +505,20 @@ public:
         std::lock_guard<std::recursive_mutex> lock(mutex_);
         if (player_respawn_handler_) {
             player_respawn_handler_(player_id, end_conquered);
+        }
+    }
+
+    void dispatchPlayerChangeDimension(int32_t player_id, const char* from_dimension, const char* to_dimension) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        if (player_change_dimension_handler_) {
+            player_change_dimension_handler_(player_id, from_dimension, to_dimension);
+        }
+    }
+
+    void dispatchEntityChangeDimension(int32_t entity_id, const char* from_dimension, const char* to_dimension) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        if (entity_change_dimension_handler_) {
+            entity_change_dimension_handler_(entity_id, from_dimension, to_dimension);
         }
     }
 
@@ -972,6 +996,8 @@ public:
         player_join_handler_ = nullptr;
         player_leave_handler_ = nullptr;
         player_respawn_handler_ = nullptr;
+        player_change_dimension_handler_ = nullptr;
+        entity_change_dimension_handler_ = nullptr;
         player_death_handler_ = nullptr;
         entity_damage_handler_ = nullptr;
         entity_death_handler_ = nullptr;
@@ -1064,6 +1090,8 @@ private:
     PlayerJoinCallback player_join_handler_ = nullptr;
     PlayerLeaveCallback player_leave_handler_ = nullptr;
     PlayerRespawnCallback player_respawn_handler_ = nullptr;
+    PlayerChangeDimensionCallback player_change_dimension_handler_ = nullptr;
+    EntityChangeDimensionCallback entity_change_dimension_handler_ = nullptr;
     PlayerDeathCallback player_death_handler_ = nullptr;
     EntityDamageCallback entity_damage_handler_ = nullptr;
     EntityDeathCallback entity_death_handler_ = nullptr;

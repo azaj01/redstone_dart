@@ -658,6 +658,14 @@ void register_player_respawn_handler(PlayerRespawnCallback cb) {
     dart_mc_bridge::CallbackRegistry::instance().setPlayerRespawnHandler(cb);
 }
 
+void register_player_change_dimension_handler(PlayerChangeDimensionCallback cb) {
+    dart_mc_bridge::CallbackRegistry::instance().setPlayerChangeDimensionHandler(cb);
+}
+
+void register_entity_change_dimension_handler(EntityChangeDimensionCallback cb) {
+    dart_mc_bridge::CallbackRegistry::instance().setEntityChangeDimensionHandler(cb);
+}
+
 void register_player_death_handler(PlayerDeathCallback cb) {
     dart_mc_bridge::CallbackRegistry::instance().setPlayerDeathHandler(cb);
 }
@@ -738,6 +746,16 @@ void dispatch_player_respawn(int32_t player_id, bool end_conquered) {
     if (!g_initialized || g_engine == nullptr) return;
     // Direct callback - merged thread approach allows this
     dart_mc_bridge::CallbackRegistry::instance().dispatchPlayerRespawn(player_id, end_conquered);
+}
+
+void dispatch_player_change_dimension(int32_t player_id, const char* from_dimension, const char* to_dimension) {
+    if (!g_initialized || g_engine == nullptr) return;
+    dart_mc_bridge::CallbackRegistry::instance().dispatchPlayerChangeDimension(player_id, from_dimension, to_dimension);
+}
+
+void dispatch_entity_change_dimension(int32_t entity_id, const char* from_dimension, const char* to_dimension) {
+    if (!g_initialized || g_engine == nullptr) return;
+    dart_mc_bridge::CallbackRegistry::instance().dispatchEntityChangeDimension(entity_id, from_dimension, to_dimension);
 }
 
 char* dispatch_player_death(int32_t player_id, const char* damage_source) {

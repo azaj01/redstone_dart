@@ -32,4 +32,5 @@ export 'src/flutter_display.dart';
 export 'src/data_components.dart';
 export 'src/item_stack_handle.dart';
 export 'src/server.dart';
+export 'src/dimension_registry.dart';
 export 'src/world_gen.dart';

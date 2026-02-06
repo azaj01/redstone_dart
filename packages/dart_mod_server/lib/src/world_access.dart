@@ -4,6 +4,8 @@
 /// It extends the common World class with actual JNI calls to read/write world data.
 library;
 
+import 'dart:convert';
+
 import 'package:dart_mod_common/dart_mod_common.dart';
 import 'package:dart_mod_common/src/jni/jni_internal.dart';
 
@@ -27,6 +29,41 @@ class ServerWorld extends World {
 
   /// Get the end.
   static const end = ServerWorld('minecraft:the_end');
+
+  // ==========================================================================
+  // Dimension Query APIs
+  // ==========================================================================
+
+  /// Get all loaded dimension IDs.
+  static List<String> get loadedDimensions {
+    final result = GenericJniBridge.callStaticStringMethod(
+      _dartBridge,
+      'getLoadedDimensions',
+      '()Ljava/lang/String;',
+      [],
+    );
+    if (result == null || result.isEmpty) return [];
+    return result.split(',');
+  }
+
+  /// Get all loaded worlds as ServerWorld instances.
+  static List<ServerWorld> get loadedWorlds {
+    return loadedDimensions.map((id) => ServerWorld(id)).toList();
+  }
+
+  /// Get the dimension type properties for this world.
+  DimensionProperties get properties {
+    final result = GenericJniBridge.callStaticStringMethod(
+      _dartBridge,
+      'getDimensionProperties',
+      '(Ljava/lang/String;)Ljava/lang/String;',
+      [dimensionId],
+    );
+    if (result == null || result.isEmpty) return const DimensionProperties();
+    return DimensionProperties.fromJson(
+      jsonDecode(result) as Map<String, dynamic>,
+    );
+  }
 
   // ==========================================================================
   // Block Manipulation APIs

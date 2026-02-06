@@ -251,6 +251,36 @@ void registerCommands() {
   );
 
   // =========================================================================
+  // Dimension Commands
+  // These commands demonstrate the Dimension API
+  // =========================================================================
+
+  // /diminfo - Shows loaded dimensions and current dimension properties
+  Commands.register(
+    'diminfo',
+    execute: (context) {
+      final player = context.source;
+      final dims = ServerWorld.loadedDimensions;
+
+      context.sendFeedback('§5=== Dimension Info ===');
+      context.sendFeedback('§7Loaded dimensions: §f${dims.join(", ")}');
+
+      final currentDim = player.dimension;
+      final props = ServerWorld(currentDim.dimensionId).properties;
+      context.sendFeedback('§7Current: §b${currentDim.dimensionId}');
+      context.sendFeedback(
+          '§7Skylight: §f${props.hasSkylight}§7, Ceiling: §f${props.hasCeiling}');
+      context.sendFeedback(
+          '§7Height: §f${props.height}§7, MinY: §f${props.minY}');
+      context.sendFeedback(
+          '§7Natural: §f${props.natural}§7, Ambient Light: §f${props.ambientLight}');
+
+      return 1;
+    },
+    description: 'Shows loaded dimensions and current dimension properties',
+  );
+
+  // =========================================================================
   // Server Lifecycle Commands
   // These commands demonstrate the Server lifecycle API
   // =========================================================================
@@ -367,5 +397,5 @@ void registerCommands() {
     ],
   );
 
-  print('Commands: Registered 16 custom commands (including /togglehud for HUD demo)');
+  print('Commands: Registered 17 custom commands (including /diminfo and /togglehud)');
 }

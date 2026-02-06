@@ -94,6 +94,8 @@ typedef void (*BlockEntityContainerCloseCallback)(int32_t handler_id, int64_t bl
 typedef void (*PlayerJoinCallback)(int32_t player_id);
 typedef void (*PlayerLeaveCallback)(int32_t player_id);
 typedef void (*PlayerRespawnCallback)(int32_t player_id, bool end_conquered);
+typedef void (*PlayerChangeDimensionCallback)(int32_t player_id, const char* from_dimension, const char* to_dimension);
+typedef void (*EntityChangeDimensionCallback)(int32_t entity_id, const char* from_dimension, const char* to_dimension);
 typedef char* (*PlayerDeathCallback)(int32_t player_id, const char* damage_source);
 
 // Entity events
@@ -199,6 +201,8 @@ void server_register_block_entity_container_close_handler(BlockEntityContainerCl
 void server_register_player_join_handler(PlayerJoinCallback cb);
 void server_register_player_leave_handler(PlayerLeaveCallback cb);
 void server_register_player_respawn_handler(PlayerRespawnCallback cb);
+void server_register_player_change_dimension_handler(PlayerChangeDimensionCallback cb);
+void server_register_entity_change_dimension_handler(EntityChangeDimensionCallback cb);
 void server_register_player_death_handler(PlayerDeathCallback cb);
 void server_register_entity_damage_handler(EntityDamageCallback cb);
 void server_register_entity_death_handler(EntityDeathCallback cb);
@@ -293,6 +297,8 @@ void server_dispatch_block_entity_container_close(int32_t handler_id, int64_t bl
 void server_dispatch_player_join(int32_t player_id);
 void server_dispatch_player_leave(int32_t player_id);
 void server_dispatch_player_respawn(int32_t player_id, bool end_conquered);
+void server_dispatch_player_change_dimension(int32_t player_id, const char* from_dimension, const char* to_dimension);
+void server_dispatch_entity_change_dimension(int32_t entity_id, const char* from_dimension, const char* to_dimension);
 char* server_dispatch_player_death(int32_t player_id, const char* damage_source);
 bool server_dispatch_entity_damage(int32_t entity_id, const char* damage_source, double amount);
 void server_dispatch_entity_death(int32_t entity_id, const char* damage_source);

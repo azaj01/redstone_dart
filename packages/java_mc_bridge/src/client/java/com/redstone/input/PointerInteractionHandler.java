@@ -240,6 +240,16 @@ public class PointerInteractionHandler {
     }
 
     /**
+     * Immediately unlock from the current entity.
+     * Called when the user presses ESC to deselect the display.
+     */
+    public static void unlock() {
+        if (!isLocked()) return;
+        LOGGER.info("Immediate unlock requested");
+        releaseLock(true);
+    }
+
+    /**
      * Get the locked entity ID.
      */
     public static int getLockedEntityId() {
@@ -321,10 +331,8 @@ public class PointerInteractionHandler {
             sendUnlockRequest();
         }
 
-        // Release the mouse
-        releaseMouse();
-
-        // Clear state
+        // Clear state first (before mouse operations, so isLocked() returns false
+        // and our mouse/keyboard mixins won't intercept events during the transition)
         lockedEntityId = -1;
         lockedSurfaceId = -1;
         lockedRoute = "";
@@ -333,6 +341,22 @@ public class PointerInteractionHandler {
         pointerAdded = false;
         currentButtons = 0;
         buttonsDownInFlutter = 0;
+
+        // Flush any pending key event before releasing
+        hasPendingKeyEvent = false;
+
+        // Mouse state: The mouse was already grabbed before we locked (for normal Minecraft
+        // camera control). During lock, we use the same grabbed state. On unlock, we just
+        // leave it grabbed - Minecraft will handle it from here.
+        // We only need to release if a screen is open (e.g., player opened inventory while locked).
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen != null) {
+            // Screen is open: release the mouse so cursor is visible on the screen
+            mc.mouseHandler.releaseMouse();
+            LOGGER.info("Mouse released (screen is open)");
+        } else {
+            LOGGER.info("Unlock complete, mouse stays grabbed for normal gameplay");
+        }
     }
 
     /**

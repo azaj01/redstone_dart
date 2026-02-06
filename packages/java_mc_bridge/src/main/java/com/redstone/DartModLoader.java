@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import com.mojang.brigadier.arguments.FloatArgumentType;
@@ -575,6 +576,24 @@ public class DartModLoader implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             if (DartBridge.isInitialized()) {
                 DartBridge.dispatchPlayerLeave(handler.getPlayer().getId());
+            }
+        });
+
+        // Player dimension change event
+        ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> {
+            if (DartBridge.isInitialized()) {
+                String fromDim = origin.dimension().identifier().toString();
+                String toDim = destination.dimension().identifier().toString();
+                DartBridge.dispatchPlayerChangeDimension(player.getId(), fromDim, toDim);
+            }
+        });
+
+        // Entity dimension change event (excludes players per Fabric API)
+        ServerEntityWorldChangeEvents.AFTER_ENTITY_CHANGE_WORLD.register((originalEntity, newEntity, origin, destination) -> {
+            if (DartBridge.isInitialized()) {
+                String fromDim = origin.dimension().identifier().toString();
+                String toDim = destination.dimension().identifier().toString();
+                DartBridge.dispatchEntityChangeDimension(newEntity.getId(), fromDim, toDim);
             }
         });
 

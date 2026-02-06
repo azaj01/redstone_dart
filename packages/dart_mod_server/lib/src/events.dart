@@ -37,6 +37,8 @@ bool _customGoalHandlersRegistered = false;
 void Function(Player player)? _playerJoinHandler;
 void Function(Player player)? _playerLeaveHandler;
 void Function(Player player, bool endConquered)? _playerRespawnHandler;
+void Function(Player player, String fromDimension, String toDimension)? _playerChangeDimensionHandler;
+void Function(Entity entity, String fromDimension, String toDimension)? _entityChangeDimensionHandler;
 String? Function(Player player, String damageSource)? _playerDeathHandler;
 bool Function(Entity entity, String damageSource, double amount)?
     _entityDamageHandler;
@@ -99,6 +101,23 @@ void _onPlayerLeave(int playerId) {
 @pragma('vm:entry-point')
 void _onPlayerRespawn(int playerId, bool endConquered) {
   _playerRespawnHandler?.call(Player(playerId), endConquered);
+}
+
+@pragma('vm:entry-point')
+void _onPlayerChangeDimension(int playerId, Pointer<Utf8> fromDimPtr, Pointer<Utf8> toDimPtr) {
+  if (_playerChangeDimensionHandler == null) return;
+  final fromDim = fromDimPtr.toDartString();
+  final toDim = toDimPtr.toDartString();
+  _playerChangeDimensionHandler!(Player(playerId), fromDim, toDim);
+}
+
+@pragma('vm:entry-point')
+void _onEntityChangeDimension(int entityId, Pointer<Utf8> fromDimPtr, Pointer<Utf8> toDimPtr) {
+  if (_entityChangeDimensionHandler == null) return;
+  final fromDim = fromDimPtr.toDartString();
+  final toDim = toDimPtr.toDartString();
+  final entity = Entities.getTypedEntity(entityId) ?? Entity(entityId);
+  _entityChangeDimensionHandler!(entity, fromDim, toDim);
 }
 
 @pragma('vm:entry-point')
@@ -437,6 +456,10 @@ typedef _ProxyBlockGetAnalogOutputCallbackNative = Int32 Function(Int64, Int64, 
 typedef _PlayerJoinCallbackNative = Void Function(Int32);
 typedef _PlayerLeaveCallbackNative = Void Function(Int32);
 typedef _PlayerRespawnCallbackNative = Void Function(Int32, Bool);
+typedef _PlayerChangeDimensionCallbackNative = Void Function(
+    Int32, Pointer<Utf8>, Pointer<Utf8>);
+typedef _EntityChangeDimensionCallbackNative = Void Function(
+    Int32, Pointer<Utf8>, Pointer<Utf8>);
 typedef _PlayerDeathCallbackNative = Pointer<Utf8> Function(
     Int32, Pointer<Utf8>);
 typedef _EntityDamageCallbackNative = Bool Function(
@@ -781,6 +804,34 @@ class Events {
     final callback =
         Pointer.fromFunction<_PlayerRespawnCallbackNative>(_onPlayerRespawn);
     ServerBridge.registerPlayerRespawnHandler(callback);
+  }
+
+  // ==========================================================================
+  // Dimension Change Events
+  // ==========================================================================
+
+  /// Set a handler for when a player changes dimension (e.g., enters a nether portal).
+  /// [fromDimension] and [toDimension] are dimension identifiers like "minecraft:overworld".
+  static void onPlayerChangeDimension(
+      void Function(Player player, String fromDimension, String toDimension)
+          handler) {
+    _playerChangeDimensionHandler = handler;
+    final callback =
+        Pointer.fromFunction<_PlayerChangeDimensionCallbackNative>(
+            _onPlayerChangeDimension);
+    ServerBridge.registerPlayerChangeDimensionHandler(callback);
+  }
+
+  /// Set a handler for when a non-player entity changes dimension.
+  /// [fromDimension] and [toDimension] are dimension identifiers like "minecraft:overworld".
+  static void onEntityChangeDimension(
+      void Function(Entity entity, String fromDimension, String toDimension)
+          handler) {
+    _entityChangeDimensionHandler = handler;
+    final callback =
+        Pointer.fromFunction<_EntityChangeDimensionCallbackNative>(
+            _onEntityChangeDimension);
+    ServerBridge.registerEntityChangeDimensionHandler(callback);
   }
 
   // ==========================================================================

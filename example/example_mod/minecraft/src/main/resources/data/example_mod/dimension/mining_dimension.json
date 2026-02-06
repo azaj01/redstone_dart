@@ -1,0 +1,31 @@
+{
+  "type": "example_mod:mining_dimension",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "layers": [
+        {
+          "block": "minecraft:bedrock",
+          "height": 1
+        },
+        {
+          "block": "minecraft:deepslate",
+          "height": 40
+        },
+        {
+          "block": "minecraft:stone",
+          "height": 20
+        },
+        {
+          "block": "minecraft:diamond_ore",
+          "height": 1
+        },
+        {
+          "block": "minecraft:stone",
+          "height": 5
+        }
+      ],
+      "biome": "minecraft:plains"
+    }
+  }
+}

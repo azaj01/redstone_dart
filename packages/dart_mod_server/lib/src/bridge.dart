@@ -172,6 +172,8 @@ class ServerBridge {
   static late final _ServerRegisterPlayerJoinHandler _serverRegisterPlayerJoinHandler;
   static late final _ServerRegisterPlayerLeaveHandler _serverRegisterPlayerLeaveHandler;
   static late final _ServerRegisterPlayerRespawnHandler _serverRegisterPlayerRespawnHandler;
+  static late final _ServerRegisterPlayerChangeDimensionHandler _serverRegisterPlayerChangeDimensionHandler;
+  static late final _ServerRegisterEntityChangeDimensionHandler _serverRegisterEntityChangeDimensionHandler;
   static late final _ServerRegisterPlayerDeathHandler _serverRegisterPlayerDeathHandler;
   static late final _ServerRegisterEntityDamageHandler _serverRegisterEntityDamageHandler;
   static late final _ServerRegisterEntityDeathHandler _serverRegisterEntityDeathHandler;
@@ -387,6 +389,14 @@ class ServerBridge {
     _serverRegisterPlayerRespawnHandler = lib.lookupFunction<
         Void Function(Pointer<NativeFunction<_PlayerRespawnCallbackNative>>),
         void Function(Pointer<NativeFunction<_PlayerRespawnCallbackNative>>)>('server_register_player_respawn_handler');
+
+    _serverRegisterPlayerChangeDimensionHandler = lib.lookupFunction<
+        Void Function(Pointer<NativeFunction<_PlayerChangeDimensionCallbackNative>>),
+        void Function(Pointer<NativeFunction<_PlayerChangeDimensionCallbackNative>>)>('server_register_player_change_dimension_handler');
+
+    _serverRegisterEntityChangeDimensionHandler = lib.lookupFunction<
+        Void Function(Pointer<NativeFunction<_EntityChangeDimensionCallbackNative>>),
+        void Function(Pointer<NativeFunction<_EntityChangeDimensionCallbackNative>>)>('server_register_entity_change_dimension_handler');
 
     _serverRegisterPlayerDeathHandler = lib.lookupFunction<
         Void Function(Pointer<NativeFunction<_PlayerDeathCallbackNative>>),
@@ -1201,6 +1211,14 @@ class ServerBridge {
     _serverRegisterPlayerRespawnHandler(callback);
   }
 
+  static void registerPlayerChangeDimensionHandler(Pointer<NativeFunction<_PlayerChangeDimensionCallbackNative>> callback) {
+    _serverRegisterPlayerChangeDimensionHandler(callback);
+  }
+
+  static void registerEntityChangeDimensionHandler(Pointer<NativeFunction<_EntityChangeDimensionCallbackNative>> callback) {
+    _serverRegisterEntityChangeDimensionHandler(callback);
+  }
+
   static void registerPlayerDeathHandler(Pointer<NativeFunction<_PlayerDeathCallbackNative>> callback) {
     _serverRegisterPlayerDeathHandler(callback);
   }
@@ -1393,6 +1411,8 @@ typedef _ServerRegisterProxyBlockGetAnalogOutputHandler = void Function(Pointer<
 typedef _ServerRegisterPlayerJoinHandler = void Function(Pointer<NativeFunction<_PlayerJoinCallbackNative>>);
 typedef _ServerRegisterPlayerLeaveHandler = void Function(Pointer<NativeFunction<_PlayerLeaveCallbackNative>>);
 typedef _ServerRegisterPlayerRespawnHandler = void Function(Pointer<NativeFunction<_PlayerRespawnCallbackNative>>);
+typedef _ServerRegisterPlayerChangeDimensionHandler = void Function(Pointer<NativeFunction<_PlayerChangeDimensionCallbackNative>>);
+typedef _ServerRegisterEntityChangeDimensionHandler = void Function(Pointer<NativeFunction<_EntityChangeDimensionCallbackNative>>);
 typedef _ServerRegisterPlayerDeathHandler = void Function(Pointer<NativeFunction<_PlayerDeathCallbackNative>>);
 typedef _ServerRegisterEntityDamageHandler = void Function(Pointer<NativeFunction<_EntityDamageCallbackNative>>);
 typedef _ServerRegisterEntityDeathHandler = void Function(Pointer<NativeFunction<_EntityDeathCallbackNative>>);
@@ -1458,6 +1478,10 @@ typedef _ProxyBlockGetAnalogOutputCallbackNative = Int32 Function(Int64, Int64, 
 typedef _PlayerJoinCallbackNative = Void Function(Int32);
 typedef _PlayerLeaveCallbackNative = Void Function(Int32);
 typedef _PlayerRespawnCallbackNative = Void Function(Int32, Bool);
+typedef _PlayerChangeDimensionCallbackNative = Void Function(
+    Int32, Pointer<Utf8>, Pointer<Utf8>);
+typedef _EntityChangeDimensionCallbackNative = Void Function(
+    Int32, Pointer<Utf8>, Pointer<Utf8>);
 typedef _PlayerDeathCallbackNative = Pointer<Utf8> Function(Int32, Pointer<Utf8>);
 typedef _EntityDamageCallbackNative = Bool Function(Int32, Pointer<Utf8>, Double);
 typedef _EntityDeathCallbackNative = Void Function(Int32, Pointer<Utf8>);

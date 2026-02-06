@@ -685,6 +685,34 @@ JNIEXPORT void JNICALL Java_com_redstone_DartBridge_onPlayerRespawn(
 
 /*
  * Class:     com_redstone_DartBridge
+ * Method:    onPlayerChangeDimension
+ * Signature: (ILjava/lang/String;Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridge_onPlayerChangeDimension(
+    JNIEnv* env, jclass /* cls */, jint playerId, jstring fromDimension, jstring toDimension) {
+    const char* fromStr = env->GetStringUTFChars(fromDimension, nullptr);
+    const char* toStr = env->GetStringUTFChars(toDimension, nullptr);
+    server_dispatch_player_change_dimension(static_cast<int32_t>(playerId), fromStr, toStr);
+    env->ReleaseStringUTFChars(fromDimension, fromStr);
+    env->ReleaseStringUTFChars(toDimension, toStr);
+}
+
+/*
+ * Class:     com_redstone_DartBridge
+ * Method:    onEntityChangeDimension
+ * Signature: (ILjava/lang/String;Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_com_redstone_DartBridge_onEntityChangeDimension(
+    JNIEnv* env, jclass /* cls */, jint entityId, jstring fromDimension, jstring toDimension) {
+    const char* fromStr = env->GetStringUTFChars(fromDimension, nullptr);
+    const char* toStr = env->GetStringUTFChars(toDimension, nullptr);
+    server_dispatch_entity_change_dimension(static_cast<int32_t>(entityId), fromStr, toStr);
+    env->ReleaseStringUTFChars(fromDimension, fromStr);
+    env->ReleaseStringUTFChars(toDimension, toStr);
+}
+
+/*
+ * Class:     com_redstone_DartBridge
  * Method:    onPlayerDeath
  * Signature: (ILjava/lang/String;)Ljava/lang/String;
  *

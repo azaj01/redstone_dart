@@ -1,5 +1,6 @@
 // Barrel export file for all blocks
 export 'animated_blocks.dart';
+export 'dimension_portal_block.dart';
 export 'entity_radar_block.dart';
 export 'example_furnace_block.dart';
 export 'hello_block.dart';
@@ -21,6 +22,7 @@ import 'package:dart_mod_server/dart_mod_server.dart';
 
 import '../containers/simple_furnace_block.dart';
 import 'animated_blocks.dart';
+import 'dimension_portal_block.dart';
 import 'entity_radar_block.dart';
 import 'example_furnace_block.dart';
 import 'hello_block.dart';
@@ -72,6 +74,31 @@ void registerBlocks() {
   // Block states and redstone - demonstrate new features
   BlockRegistry.register(RedstoneLampBlock());
   BlockRegistry.register(PowerSourceBlock());
+
+  // Dimensions - demonstrate the Dimension API
+  DimensionRegistry.register(CustomDimension(
+    id: 'example_mod:mining_dimension',
+    type: CustomDimensionType(
+      hasSkylight: false,
+      hasCeiling: true,
+      natural: false,
+      height: 128,
+      minY: 0,
+      ambientLight: 0.1,
+      effects: 'minecraft:the_nether',
+    ),
+    generator: FlatGenerator(
+      layers: [
+        FlatLayer('minecraft:bedrock', 1),
+        FlatLayer('minecraft:deepslate', 40),
+        FlatLayer('minecraft:stone', 20),
+        FlatLayer('minecraft:diamond_ore', 1),
+        FlatLayer('minecraft:stone', 5),
+      ],
+      biome: 'minecraft:plains',
+    ),
+  ));
+  BlockRegistry.register(DimensionPortalBlock());
 
   BlockRegistry.freeze();
 }

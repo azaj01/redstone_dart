@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
+import '../assets/asset_generator.dart';
 import '../flutter/flutter.dart';
 import '../project/redstone_project.dart';
 import '../runner/minecraft_runner.dart';
@@ -177,6 +178,12 @@ class RunCommand extends Command<int> {
       if (!flutterResult) {
         return 1;
       }
+    }
+
+    // Run datagen + asset generation
+    final datagenResult = await _runDatagenAndGenerateAssets(project);
+    if (datagenResult != 0) {
+      return datagenResult;
     }
 
     // Start Minecraft
@@ -369,6 +376,47 @@ class RunCommand extends Command<int> {
 
     Logger.warning('Timeout waiting for dual-runtime VM services');
     return false;
+  }
+
+  /// Run datagen to generate manifest, then generate assets from it.
+  Future<int> _runDatagenAndGenerateAssets(RedstoneProject project) async {
+    // Determine datagen entry point
+    final datagenScript = File(project.datagenEntry);
+    final mainDatagenScript =
+        File(p.join(project.rootDir, 'lib', 'main_datagen.dart'));
+
+    String scriptPath;
+    if (datagenScript.existsSync()) {
+      scriptPath = p.relative(project.datagenEntry, from: project.rootDir);
+    } else if (mainDatagenScript.existsSync()) {
+      scriptPath = 'lib/main_datagen.dart';
+    } else {
+      scriptPath = 'lib/main.dart';
+    }
+
+    Logger.progress('Running datagen');
+    final datagenResult = await Process.run(
+      'dart',
+      ['run', scriptPath],
+      workingDirectory: project.rootDir,
+      environment: {'REDSTONE_DATAGEN': 'true'},
+    );
+
+    if (datagenResult.exitCode != 0) {
+      Logger.progressFailed();
+      Logger.error('Datagen failed:');
+      Logger.info(datagenResult.stderr.toString());
+      return 1;
+    }
+    Logger.progressDone();
+
+    // Generate assets (blockstates, models, textures, dimensions) from manifest
+    Logger.progress('Generating assets');
+    final generator = AssetGenerator(project);
+    await generator.generate();
+    Logger.progressDone();
+
+    return 0;
   }
 
   /// Prepare Flutter assets for embedding mode

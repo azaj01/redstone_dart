@@ -21,6 +21,7 @@
   "block.example_mod.deepslate_test_ore": "Deepslate Test Ore",
   "block.example_mod.redstone_lamp": "Redstone Lamp",
   "block.example_mod.power_source": "Power Source",
+  "block.example_mod.dimension_portal": "Dimension Portal",
   "item.example_mod.dart_item": "Dart Item",
   "item.example_mod.effect_wand": "Effect Wand",
   "item.example_mod.enchant_wand": "Enchant Wand",

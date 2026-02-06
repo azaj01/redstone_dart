@@ -94,13 +94,14 @@ void main() {
 
     print(
         'Server mod ready with ${BlockRegistry.blockCount} custom blocks and ${EntityRegistry.entityCount} custom entities!');
-    print('  Commands: /heal, /feed, /fly, /spawn, /dtime, /spawnzombie, /spawncow, /fireball, /spawncustomzombie');
+    print('  Commands: /heal, /feed, /fly, /spawn, /dtime, /diminfo, /spawnzombie, /spawncow, /fireball, /spawncustomzombie');
     print('  Items: DartItem, EffectWand, LightningWand, HealingOrb, TeleportStaff');
     print('  Blocks: HelloBlock, TerraformerBlock, MidasBlock, LightningRodBlock,');
     print('          MobSpawnerBlock, PartyBlock, WeatherControlBlock, EntityRadarBlock, TestChestBlock,');
-    print('          ExampleFurnace (block entity demo with smelting!)');
+    print('          ExampleFurnace (block entity demo with smelting!), DimensionPortalBlock');
     print('  Entities: DartZombie, DartCow, DartFireball, CustomGoalZombie (with Dart AI!)');
     print('  Containers: TestChest (Flutter slot integration demo)');
+    print('  Dimensions: example_mod:mining_dimension (custom flat world with ores)');
 
     // Initialize MCP runtime for AI-controlled testing (if enabled)
     // This starts an HTTP server that allows external AI agents to control Minecraft

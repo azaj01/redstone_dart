@@ -165,6 +165,8 @@ extern "C" {
     typedef void (*PlayerJoinCallback)(int32_t player_id);
     typedef void (*PlayerLeaveCallback)(int32_t player_id);
     typedef void (*PlayerRespawnCallback)(int32_t player_id, bool end_conquered);
+    typedef void (*PlayerChangeDimensionCallback)(int32_t player_id, const char* from_dimension, const char* to_dimension);
+    typedef void (*EntityChangeDimensionCallback)(int32_t entity_id, const char* from_dimension, const char* to_dimension);
     typedef char* (*PlayerDeathCallback)(int32_t player_id, const char* damage_source);  // returns custom message or null
 
     // Entity Events
@@ -199,6 +201,8 @@ extern "C" {
     void register_player_join_handler(PlayerJoinCallback cb);
     void register_player_leave_handler(PlayerLeaveCallback cb);
     void register_player_respawn_handler(PlayerRespawnCallback cb);
+    void register_player_change_dimension_handler(PlayerChangeDimensionCallback cb);
+    void register_entity_change_dimension_handler(EntityChangeDimensionCallback cb);
     void register_player_death_handler(PlayerDeathCallback cb);
     void register_entity_damage_handler(EntityDamageCallback cb);
     void register_entity_death_handler(EntityDeathCallback cb);
@@ -219,6 +223,8 @@ extern "C" {
     void dispatch_player_join(int32_t player_id);
     void dispatch_player_leave(int32_t player_id);
     void dispatch_player_respawn(int32_t player_id, bool end_conquered);
+    void dispatch_player_change_dimension(int32_t player_id, const char* from_dimension, const char* to_dimension);
+    void dispatch_entity_change_dimension(int32_t entity_id, const char* from_dimension, const char* to_dimension);
     char* dispatch_player_death(int32_t player_id, const char* damage_source);
     bool dispatch_entity_damage(int32_t entity_id, const char* damage_source, double amount);
     void dispatch_entity_death(int32_t entity_id, const char* damage_source);

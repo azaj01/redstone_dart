@@ -43,6 +43,8 @@ export 'src/entity/custom_entity.dart';
 export 'src/entity/entity_goal.dart';
 
 // World API
+export 'src/world/custom_dimension.dart';
+export 'src/world/dimension_properties.dart';
 export 'src/world/world.dart';
 
 // Registry interfaces

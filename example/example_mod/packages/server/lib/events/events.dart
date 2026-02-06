@@ -47,6 +47,12 @@ void registerEventHandlers() {
     return '§7[MOD]§f $message';
   };
 
+  // Player dimension change event - Log dimension travel
+  Events.onPlayerChangeDimension((player, fromDimension, toDimension) {
+    player.sendMessage(
+        '§5[Dimensions] §fYou traveled from §b$fromDimension§f to §b$toDimension');
+  });
+
   // Block break event (already exists, but let's enhance it)
   Events.onBlockBreak((x, y, z, playerId) {
     // Just allow all breaks - this is a showcase of the event
@@ -63,5 +69,5 @@ void registerEventHandlers() {
     }
   });
 
-  print('Events: Registered 6 event handlers');
+  print('Events: Registered 7 event handlers');
 }

@@ -657,6 +657,8 @@ public class DartBridge {
     private static native void onPlayerJoin(int playerId);
     private static native void onPlayerLeave(int playerId);
     private static native void onPlayerRespawn(int playerId, boolean endConquered);
+    private static native void onPlayerChangeDimension(int playerId, String fromDimension, String toDimension);
+    private static native void onEntityChangeDimension(int entityId, String fromDimension, String toDimension);
     private static native String onPlayerDeath(int playerId, String damageSource);
     private static native boolean onEntityDamage(int entityId, String damageSource, double amount);
     private static native void onEntityDeath(int entityId, String damageSource);
@@ -710,6 +712,30 @@ public class DartBridge {
             onPlayerRespawn(playerId, endConquered);
         } catch (Exception e) {
             LOGGER.error("Exception during player respawn dispatch: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Dispatch a player dimension change event to Dart handlers.
+     */
+    public static void dispatchPlayerChangeDimension(int playerId, String fromDimension, String toDimension) {
+        if (!initialized) return;
+        try {
+            onPlayerChangeDimension(playerId, fromDimension, toDimension);
+        } catch (Exception e) {
+            LOGGER.error("Exception during player dimension change dispatch: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Dispatch an entity dimension change event to Dart handlers.
+     */
+    public static void dispatchEntityChangeDimension(int entityId, String fromDimension, String toDimension) {
+        if (!initialized) return;
+        try {
+            onEntityChangeDimension(entityId, fromDimension, toDimension);
+        } catch (Exception e) {
+            LOGGER.error("Exception during entity dimension change dispatch: {}", e.getMessage());
         }
     }
 
@@ -1425,7 +1451,7 @@ public class DartBridge {
     public static String getPlayerDimension(int playerId) {
         ServerPlayer player = getPlayerById(playerId);
         if (player == null) return "minecraft:overworld";
-        return player.level().dimension().location().toString();
+        return player.level().dimension().identifier().toString();
     }
 
     public static void teleportPlayerToDimension(int playerId, String dimension,
@@ -1722,7 +1748,7 @@ public class DartBridge {
     public static String getEntityDimension(int entityId) {
         Entity entity = getEntityById(entityId);
         if (entity == null) return "minecraft:overworld";
-        return entity.level().dimension().location().toString();
+        return entity.level().dimension().identifier().toString();
     }
 
     // --------------------------------------------------------------------------
@@ -1802,7 +1828,7 @@ public class DartBridge {
         if (entity instanceof ServerPlayer player) {
             player.teleportTo(targetLevel, x, y, z, java.util.Set.of(), yaw, pitch, true);
         } else {
-            entity.teleportTo(targetLevel, x, y, z, java.util.Set.of(), yaw, pitch);
+            entity.teleportTo(targetLevel, x, y, z, java.util.Set.of(), yaw, pitch, true);
         }
     }
 
@@ -4715,5 +4741,52 @@ public class DartBridge {
         } catch (Exception e) {
             LOGGER.error("setItemEnchantmentsFromJson: Error parsing enchantments JSON: {}", e.getMessage());
         }
+    }
+
+    // ==========================================================================
+    // Dimension Query APIs
+    // ==========================================================================
+
+    /**
+     * Get all loaded dimension IDs as a comma-separated string.
+     * @return Comma-separated dimension IDs (e.g., "minecraft:overworld,minecraft:the_nether,minecraft:the_end")
+     */
+    public static String getLoadedDimensions() {
+        if (serverInstance == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (ServerLevel level : serverInstance.getAllLevels()) {
+            if (sb.length() > 0) sb.append(",");
+            sb.append(level.dimension().identifier().toString());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Get dimension type properties as a JSON string.
+     * @param dimension Dimension ID (e.g., "minecraft:overworld")
+     * @return JSON string with dimension type properties, or empty string if not found
+     */
+    public static String getDimensionProperties(String dimension) {
+        ServerLevel level = getServerLevel(dimension);
+        if (level == null) return "";
+        net.minecraft.world.level.dimension.DimensionType type = level.dimensionType();
+        var envAttrs = level.environmentAttributes();
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"hasSkylight\":").append(type.hasSkyLight()).append(",");
+        sb.append("\"hasCeiling\":").append(type.hasCeiling()).append(",");
+        sb.append("\"ultrawarm\":").append(envAttrs.getDimensionValue(net.minecraft.world.attribute.EnvironmentAttributes.WATER_EVAPORATES)).append(",");
+        sb.append("\"natural\":").append(!type.hasCeiling() && type.hasSkyLight()).append(",");
+        sb.append("\"coordinateScale\":").append(type.coordinateScale()).append(",");
+        sb.append("\"bedWorks\":").append(!envAttrs.getDimensionValue(net.minecraft.world.attribute.EnvironmentAttributes.BED_RULE).explodes()).append(",");
+        sb.append("\"respawnAnchorWorks\":").append(envAttrs.getDimensionValue(net.minecraft.world.attribute.EnvironmentAttributes.RESPAWN_ANCHOR_WORKS)).append(",");
+        sb.append("\"minY\":").append(type.minY()).append(",");
+        sb.append("\"height\":").append(type.height()).append(",");
+        sb.append("\"logicalHeight\":").append(type.logicalHeight()).append(",");
+        sb.append("\"ambientLight\":").append(type.ambientLight()).append(",");
+        sb.append("\"piglinSafe\":").append(!envAttrs.getDimensionValue(net.minecraft.world.attribute.EnvironmentAttributes.PIGLINS_ZOMBIFY)).append(",");
+        sb.append("\"hasRaids\":").append(envAttrs.getDimensionValue(net.minecraft.world.attribute.EnvironmentAttributes.CAN_START_RAID));
+        sb.append("}");
+        return sb.toString();
     }
 }

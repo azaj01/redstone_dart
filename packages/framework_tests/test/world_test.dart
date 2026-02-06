@@ -225,6 +225,132 @@ Future<void> main() async {
       expect(customWorld.dimensionId, equals('minecraft:overworld'));
     });
   });
+
+  await group('Entity dimension', () async {
+    await testMinecraft('entity reports correct dimension', (game) async {
+      final entity = game.spawnEntity(
+        'minecraft:pig',
+        Vec3(0, 64, 0),
+      );
+      expect(entity, isNotNull);
+      expect(entity!.dimension.dimensionId, equals('minecraft:overworld'));
+    });
+  });
+
+  await group('Player dimension', () async {
+    await testMinecraft('player reports overworld dimension', (game) async {
+      final players = game.players;
+      if (players.isEmpty) return;
+
+      final player = players.first;
+      expect(player.dimension.dimensionId, equals('minecraft:overworld'));
+    });
+  });
+
+  await group('Cross-dimension teleport', () async {
+    await testMinecraft('can teleport player to nether', (game) async {
+      final players = game.players;
+      if (players.isEmpty) return;
+
+      final player = players.first;
+      player.teleportToDimension('minecraft:the_nether', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+      expect(player.dimension.dimensionId, equals('minecraft:the_nether'));
+
+      // Teleport back to overworld to restore state
+      player.teleportToDimension('minecraft:overworld', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+    });
+
+    await testMinecraft('can teleport player back to overworld', (game) async {
+      final players = game.players;
+      if (players.isEmpty) return;
+
+      final player = players.first;
+      player.teleportToDimension('minecraft:the_nether', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+      player.teleportToDimension('minecraft:overworld', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+      expect(player.dimension.dimensionId, equals('minecraft:overworld'));
+    });
+
+    await testMinecraft('can teleport player to the end', (game) async {
+      final players = game.players;
+      if (players.isEmpty) return;
+
+      final player = players.first;
+      player.teleportToDimension('minecraft:the_end', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+      expect(player.dimension.dimensionId, equals('minecraft:the_end'));
+
+      // Teleport back to overworld to restore state
+      player.teleportToDimension('minecraft:overworld', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+    });
+  });
+
+  await group('Dimension listing', () async {
+    await testMinecraft('lists loaded dimensions', (game) async {
+      final dims = World.loadedDimensions;
+      expect(dims, contains('minecraft:overworld'));
+    });
+
+    await testMinecraft('loadedWorlds returns World instances', (game) async {
+      final worlds = World.loadedWorlds;
+      expect(worlds, isNotEmpty);
+      expect(worlds.any((w) => w.dimensionId == 'minecraft:overworld'), isTrue);
+    });
+  });
+
+  await group('Dimension properties', () async {
+    await testMinecraft('overworld has skylight', (game) async {
+      final props = World.overworld.properties;
+      expect(props.hasSkylight, isTrue);
+      expect(props.hasCeiling, isFalse);
+    });
+
+    await testMinecraft('nether has ceiling and no skylight', (game) async {
+      final props = World.nether.properties;
+      expect(props.hasCeiling, isTrue);
+      expect(props.hasSkylight, isFalse);
+      expect(props.ultrawarm, isTrue);
+    });
+
+    await testMinecraft('overworld coordinate scale is 1', (game) async {
+      final props = World.overworld.properties;
+      expect(props.coordinateScale, equals(1.0));
+    });
+
+    await testMinecraft('nether coordinate scale is 8', (game) async {
+      final props = World.nether.properties;
+      expect(props.coordinateScale, equals(8.0));
+    });
+  });
+
+  await group('Dimension change events', () async {
+    await testMinecraft('fires player dimension change event', (game) async {
+      final players = game.players;
+      if (players.isEmpty) return;
+
+      final player = players.first;
+      String? fromDim;
+      String? toDim;
+      Events.onPlayerChangeDimension((p, from, to) {
+        fromDim = from;
+        toDim = to;
+      });
+
+      player.teleportToDimension('minecraft:the_nether', Vec3(0, 64, 0));
+      await game.waitTicks(10);
+
+      expect(fromDim, equals('minecraft:overworld'));
+      expect(toDim, equals('minecraft:the_nether'));
+
+      // Teleport back to overworld to restore state
+      player.teleportToDimension('minecraft:overworld', Vec3(0, 64, 0));
+      await game.waitTicks(5);
+    });
+  });
 }
 
 /// Matcher for approximate double equality.

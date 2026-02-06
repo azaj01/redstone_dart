@@ -148,6 +148,8 @@ public:
     void setPlayerJoinHandler(PlayerJoinCallback cb) { player_join_handler_ = cb; }
     void setPlayerLeaveHandler(PlayerLeaveCallback cb) { player_leave_handler_ = cb; }
     void setPlayerRespawnHandler(PlayerRespawnCallback cb) { player_respawn_handler_ = cb; }
+    void setPlayerChangeDimensionHandler(PlayerChangeDimensionCallback cb) { player_change_dimension_handler_ = cb; }
+    void setEntityChangeDimensionHandler(EntityChangeDimensionCallback cb) { entity_change_dimension_handler_ = cb; }
     void setPlayerDeathHandler(PlayerDeathCallback cb) { player_death_handler_ = cb; }
     void setEntityDamageHandler(EntityDamageCallback cb) { entity_damage_handler_ = cb; }
     void setEntityDeathHandler(EntityDeathCallback cb) { entity_death_handler_ = cb; }
@@ -274,6 +276,17 @@ public:
     void dispatchPlayerJoin(int32_t player_id) { if (player_join_handler_) player_join_handler_(player_id); }
     void dispatchPlayerLeave(int32_t player_id) { if (player_leave_handler_) player_leave_handler_(player_id); }
     void dispatchPlayerRespawn(int32_t player_id, bool end_conquered) { if (player_respawn_handler_) player_respawn_handler_(player_id, end_conquered); }
+    void dispatchPlayerChangeDimension(int32_t player_id, const char* from_dimension, const char* to_dimension) {
+        if (player_change_dimension_handler_) {
+            player_change_dimension_handler_(player_id, from_dimension, to_dimension);
+        }
+    }
+
+    void dispatchEntityChangeDimension(int32_t entity_id, const char* from_dimension, const char* to_dimension) {
+        if (entity_change_dimension_handler_) {
+            entity_change_dimension_handler_(entity_id, from_dimension, to_dimension);
+        }
+    }
     char* dispatchPlayerDeath(int32_t player_id, const char* damage_source) { if (player_death_handler_) return player_death_handler_(player_id, damage_source); return nullptr; }
     bool dispatchEntityDamage(int32_t entity_id, const char* damage_source, double amount) { if (entity_damage_handler_) return entity_damage_handler_(entity_id, damage_source, amount); return true; }
     void dispatchEntityDeath(int32_t entity_id, const char* damage_source) { if (entity_death_handler_) entity_death_handler_(entity_id, damage_source); }
@@ -400,6 +413,8 @@ private:
     PlayerJoinCallback player_join_handler_ = nullptr;
     PlayerLeaveCallback player_leave_handler_ = nullptr;
     PlayerRespawnCallback player_respawn_handler_ = nullptr;
+    PlayerChangeDimensionCallback player_change_dimension_handler_ = nullptr;
+    EntityChangeDimensionCallback entity_change_dimension_handler_ = nullptr;
     PlayerDeathCallback player_death_handler_ = nullptr;
     EntityDamageCallback entity_damage_handler_ = nullptr;
     EntityDeathCallback entity_death_handler_ = nullptr;
@@ -868,6 +883,8 @@ void server_register_proxy_block_set_state_handler(ProxyBlockSetStateCallback cb
 void server_register_player_join_handler(PlayerJoinCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setPlayerJoinHandler(cb); }
 void server_register_player_leave_handler(PlayerLeaveCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setPlayerLeaveHandler(cb); }
 void server_register_player_respawn_handler(PlayerRespawnCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setPlayerRespawnHandler(cb); }
+void server_register_player_change_dimension_handler(PlayerChangeDimensionCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setPlayerChangeDimensionHandler(cb); }
+void server_register_entity_change_dimension_handler(EntityChangeDimensionCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setEntityChangeDimensionHandler(cb); }
 void server_register_player_death_handler(PlayerDeathCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setPlayerDeathHandler(cb); }
 void server_register_entity_damage_handler(EntityDamageCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setEntityDamageHandler(cb); }
 void server_register_entity_death_handler(EntityDeathCallback cb) { dart_mc_bridge::ServerCallbackRegistry::instance().setEntityDeathHandler(cb); }
@@ -1241,6 +1258,24 @@ void server_dispatch_player_respawn(int32_t player_id, bool end_conquered) {
     bool did_enter = safe_enter_isolate();
     Dart_EnterScope();
     dart_mc_bridge::ServerCallbackRegistry::instance().dispatchPlayerRespawn(player_id, end_conquered);
+    Dart_ExitScope();
+    safe_exit_isolate(did_enter);
+}
+
+void server_dispatch_player_change_dimension(int32_t player_id, const char* from_dimension, const char* to_dimension) {
+    SERVER_DISPATCH_BEGIN();
+    bool did_enter = safe_enter_isolate();
+    Dart_EnterScope();
+    dart_mc_bridge::ServerCallbackRegistry::instance().dispatchPlayerChangeDimension(player_id, from_dimension, to_dimension);
+    Dart_ExitScope();
+    safe_exit_isolate(did_enter);
+}
+
+void server_dispatch_entity_change_dimension(int32_t entity_id, const char* from_dimension, const char* to_dimension) {
+    SERVER_DISPATCH_BEGIN();
+    bool did_enter = safe_enter_isolate();
+    Dart_EnterScope();
+    dart_mc_bridge::ServerCallbackRegistry::instance().dispatchEntityChangeDimension(entity_id, from_dimension, to_dimension);
     Dart_ExitScope();
     safe_exit_isolate(did_enter);
 }
