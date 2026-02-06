@@ -1422,6 +1422,21 @@ public class DartBridge {
         }
     }
 
+    public static String getPlayerDimension(int playerId) {
+        ServerPlayer player = getPlayerById(playerId);
+        if (player == null) return "minecraft:overworld";
+        return player.level().dimension().location().toString();
+    }
+
+    public static void teleportPlayerToDimension(int playerId, String dimension,
+            double x, double y, double z, float yaw, float pitch) {
+        ServerPlayer player = getPlayerById(playerId);
+        if (player == null) return;
+        ServerLevel targetLevel = getServerLevel(dimension);
+        if (targetLevel == null) return;
+        player.teleportTo(targetLevel, x, y, z, java.util.Set.of(), yaw, pitch, true);
+    }
+
     // --------------------------------------------------------------------------
     // Health & Food
     // --------------------------------------------------------------------------
@@ -1704,6 +1719,12 @@ public class DartBridge {
         return entity instanceof Player;
     }
 
+    public static String getEntityDimension(int entityId) {
+        Entity entity = getEntityById(entityId);
+        if (entity == null) return "minecraft:overworld";
+        return entity.level().dimension().location().toString();
+    }
+
     // --------------------------------------------------------------------------
     // Entity Position & Movement
     // --------------------------------------------------------------------------
@@ -1769,6 +1790,19 @@ public class DartBridge {
             entity.teleportTo(x, y, z);
             entity.setYRot(yaw);
             entity.setXRot(pitch);
+        }
+    }
+
+    public static void teleportEntityToDimension(int entityId, String dimension,
+            double x, double y, double z, float yaw, float pitch) {
+        Entity entity = getEntityById(entityId);
+        if (entity == null) return;
+        ServerLevel targetLevel = getServerLevel(dimension);
+        if (targetLevel == null) return;
+        if (entity instanceof ServerPlayer player) {
+            player.teleportTo(targetLevel, x, y, z, java.util.Set.of(), yaw, pitch, true);
+        } else {
+            entity.teleportTo(targetLevel, x, y, z, java.util.Set.of(), yaw, pitch);
         }
     }
 

@@ -166,6 +166,16 @@ class Entity {
     );
   }
 
+  /// Teleport the entity to a position in a specific dimension.
+  void teleportToDimension(String dimension, Vec3 pos, {double? yaw, double? pitch}) {
+    GenericJniBridge.callStaticVoidMethod(
+      _dartBridge,
+      'teleportEntityToDimension',
+      '(ILjava/lang/String;DDDFF)V',
+      [id, dimension, pos.x, pos.y, pos.z, (yaw ?? this.yaw).toDouble(), (pitch ?? this.pitch).toDouble()],
+    );
+  }
+
   // ==========================================================================
   // State Flags
   // ==========================================================================

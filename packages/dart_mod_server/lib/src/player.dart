@@ -110,6 +110,27 @@ class Player {
     );
   }
 
+  /// Get the dimension/world this player is in.
+  World get dimension {
+    final dimensionId = GenericJniBridge.callStaticStringMethod(
+      _dartBridge,
+      'getPlayerDimension',
+      '(I)Ljava/lang/String;',
+      [id],
+    );
+    return World(dimensionId ?? 'minecraft:overworld');
+  }
+
+  /// Teleport the player to a position in a specific dimension.
+  void teleportToDimension(String dimension, Vec3 pos, {double? yaw, double? pitch}) {
+    GenericJniBridge.callStaticVoidMethod(
+      _dartBridge,
+      'teleportPlayerToDimension',
+      '(ILjava/lang/String;DDDFF)V',
+      [id, dimension, pos.x, pos.y, pos.z, (yaw ?? this.yaw).toDouble(), (pitch ?? this.pitch).toDouble()],
+    );
+  }
+
   // ==========================================================================
   // Health & Food
   // ==========================================================================
