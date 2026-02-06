@@ -976,12 +976,13 @@ class ServerBridge {
   ///
   /// This will cause the server to halt and exit. Use this when you need
   /// to programmatically stop the server (e.g., after tests complete).
-  ///
-  /// NOTE: Not implemented in native code yet. Use JNI-based approach instead.
   static void stopServer() {
     if (isDatagenMode) return;
-    print('ServerBridge: stopServer() not implemented in native code');
-    // TODO: Implement via JNI call to MinecraftServer.halt()
+    GenericJniBridge.callStaticVoidMethod(
+      'com/redstone/DartBridge',
+      'stopServer',
+      '()V',
+    );
   }
 
   // ==========================================================================
