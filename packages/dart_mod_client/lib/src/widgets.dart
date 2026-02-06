@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/widgets.dart';
+import 'package:minecraft_ui/minecraft_ui.dart';
 
 /// A Minecraft-style button widget.
 class MinecraftButton extends StatelessWidget {
@@ -31,31 +32,17 @@ class MinecraftButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Implement Minecraft-style button rendering
-    return GestureDetector(
-      onTap: enabled ? onPressed : null,
-      child: Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: enabled ? const Color(0xFF808080) : const Color(0xFF505050),
-          border: Border.all(color: const Color(0xFF000000)),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: enabled ? const Color(0xFFFFFFFF) : const Color(0xFFA0A0A0),
-            fontSize: 14,
-          ),
-        ),
-      ),
+    return McButton(
+      text: label,
+      onPressed: onPressed,
+      width: width,
+      enabled: enabled,
     );
   }
 }
 
 /// A Minecraft-style text input widget.
-class MinecraftTextField extends StatefulWidget {
+class MinecraftTextField extends StatelessWidget {
   /// Initial text value.
   final String initialValue;
 
@@ -85,43 +72,19 @@ class MinecraftTextField extends StatefulWidget {
   });
 
   @override
-  State<MinecraftTextField> createState() => _MinecraftTextFieldState();
-}
-
-class _MinecraftTextFieldState extends State<MinecraftTextField> {
-  late String _value;
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.initialValue;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // TODO: Implement Minecraft-style text field rendering
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF000000),
-        border: Border.all(color: const Color(0xFFA0A0A0)),
-      ),
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(
-        _value.isEmpty && widget.placeholder != null ? widget.placeholder! : _value,
-        style: TextStyle(
-          color: _value.isEmpty ? const Color(0xFF707070) : const Color(0xFFE0E0E0),
-          fontSize: 14,
-        ),
-      ),
+    return McTextField(
+      initialValue: initialValue,
+      onChanged: onChanged,
+      placeholder: placeholder,
+      maxLength: maxLength,
+      width: width,
     );
   }
 }
 
 /// A Minecraft-style slider widget.
-class MinecraftSlider extends StatefulWidget {
+class MinecraftSlider extends StatelessWidget {
   /// Current value (0.0 to 1.0).
   final double value;
 
@@ -147,41 +110,13 @@ class MinecraftSlider extends StatefulWidget {
   });
 
   @override
-  State<MinecraftSlider> createState() => _MinecraftSliderState();
-}
-
-class _MinecraftSliderState extends State<MinecraftSlider> {
-  @override
   Widget build(BuildContext context) {
-    // TODO: Implement Minecraft-style slider rendering
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF808080),
-        border: Border.all(color: const Color(0xFF000000)),
-      ),
-      child: Stack(
-        children: [
-          // Progress bar
-          FractionallySizedBox(
-            widthFactor: widget.value,
-            child: Container(
-              color: const Color(0xFF00FF00),
-            ),
-          ),
-          // Label
-          Center(
-            child: Text(
-              widget.labelFormatter?.call(widget.value) ?? '${(widget.value * 100).round()}%',
-              style: const TextStyle(
-                color: Color(0xFFFFFFFF),
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final label = labelFormatter?.call(value) ?? '${(value * 100).round()}%';
+    return McSlider(
+      value: value,
+      onChanged: onChanged,
+      width: width,
+      label: label,
     );
   }
 }
