@@ -104,7 +104,7 @@ static void drain_microtask_queue() {
         }
     } else {
         // JIT mode: use DartDll helper
-        drain_microtask_queue();
+        DartDll_DrainMicrotaskQueue();
     }
 }
 

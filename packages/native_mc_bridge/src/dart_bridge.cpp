@@ -21,6 +21,7 @@
 // ==========================================================================
 
 static FlutterEngine g_engine = nullptr;
+static FlutterEngineAOTData g_aot_data = nullptr;
 static bool g_initialized = false;
 static bool g_rendering_enabled = false;
 static std::mutex g_engine_mutex;
@@ -239,7 +240,17 @@ bool dart_bridge_init(const char* assets_path, const char* icu_data_path,
     if (is_aot_mode) {
         // AOT mode: load precompiled snapshot from ELF file
         std::cout << "  Mode: AOT (release)" << std::endl;
-        args.elf_snapshot_path = aot_library_path;
+
+        FlutterEngineAOTDataSource aot_source = {};
+        aot_source.type = kFlutterEngineAOTDataSourceTypeElfPath;
+        aot_source.elf_path = aot_library_path;
+
+        FlutterEngineResult aot_result = FlutterEngineCreateAOTData(&aot_source, &g_aot_data);
+        if (aot_result == kSuccess) {
+            args.aot_data = g_aot_data;
+        } else {
+            std::cerr << "Failed to create AOT data from ELF: " << aot_result << std::endl;
+        }
 
         // In AOT mode, we don't need VM service (hot reload not supported)
         static const char* aot_vm_args[] = {
@@ -370,6 +381,12 @@ void dart_bridge_shutdown() {
             std::cerr << "Warning: Flutter engine shutdown returned error: " << result << std::endl;
         }
         g_engine = nullptr;
+    }
+
+    // Cleanup AOT data
+    if (g_aot_data != nullptr) {
+        FlutterEngineCollectAOTData(g_aot_data);
+        g_aot_data = nullptr;
     }
 
     g_initialized = false;

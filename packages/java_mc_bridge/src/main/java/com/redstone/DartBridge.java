@@ -63,8 +63,6 @@ import net.minecraft.tags.DamageTypeTags;
 
 import com.redstone.util.ItemStackSerializer;
 
-import org.scijava.nativelib.NativeLoader;
-
 /**
  * JNI interface to the native Dart bridge.
  *
@@ -106,18 +104,7 @@ public class DartBridge {
             LOGGER.debug("Could not load from java.library.path: {}", e.getMessage());
         }
 
-        // Try NativeLoader (extracts from JAR resources automatically)
-        // This is the primary method for distributed mod JARs
-        // NativeLoader expects natives at /natives/{platform}/libname.{ext}
-        try {
-            NativeLoader.loadLibrary("dart_mc_bridge");
-            LOGGER.info("Loaded dart_mc_bridge via NativeLoader (JAR distribution mode)");
-            return;
-        } catch (Exception e) {
-            LOGGER.debug("Could not load via NativeLoader: {}", e.getMessage());
-        }
-
-        // Fallback: try absolute paths in run directory (legacy support)
+        // Fallback: try absolute paths in run directory
         String osName = System.getProperty("os.name").toLowerCase();
         String libName;
         if (osName.contains("mac")) {
@@ -146,8 +133,7 @@ public class DartBridge {
 
         // If nothing works, throw error
         throw new UnsatisfiedLinkError("Could not find dart_mc_bridge native library. " +
-            "For development: ensure native is in java.library.path. " +
-            "For distribution: ensure natives are in JAR at /natives/{platform}/");
+            "Ensure native is in java.library.path or in the run directory.");
     }
 
     // ==========================================================================

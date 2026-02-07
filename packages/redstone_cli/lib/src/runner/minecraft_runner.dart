@@ -634,17 +634,13 @@ class MinecraftRunner {
   /// This is logged in DartModLoader.java when SERVER_STARTED fires.
   static final _worldJoinRegex = RegExp(r'\[redstone\] Loaded world:\s*(.+)');
 
-  /// Regular expression to detect Dart VM service URL from output.
-  /// Server Dart VM prints: "The Dart VM service is listening on http://127.0.0.1:5858/..."
-  /// Note: No "flutter:" prefix for server dart_dll runtime.
-  static final _serverVmServiceRegex = RegExp(
-    r'(?<!flutter:\s*)The Dart VM service is listening on (http://[\d\.]+:\d+/[^\s]*)',
-  );
-
-  /// Regular expression to detect Flutter/Client VM service URL from output.
-  /// Flutter prints: "flutter: The Dart VM service is listening on http://127.0.0.1:XXXX/..."
-  static final _clientVmServiceRegex = RegExp(
-    r'flutter:\s*The Dart VM service is listening on (http://[\d\.]+:\d+/[^\s]*)',
+  /// Regular expression to detect any Dart VM service URL from output.
+  /// Both server and client runtimes print: "The Dart VM service is listening on http://..."
+  /// The optional "flutter: " prefix may or may not be present for client output.
+  /// We distinguish server vs client by port number instead.
+  /// Capture group 1 = full URL, capture group 2 = port number.
+  static final _vmServiceRegex = RegExp(
+    r'The Dart VM service is listening on (http://[\d\.]+:(\d+)/[^\s]*)',
   );
 
   /// Detect world name from Minecraft log output
@@ -717,28 +713,19 @@ class MinecraftRunner {
     }
   }
 
-  /// Detect VM service URL from Minecraft/runtime output
+  /// Detect VM service URL from Minecraft/runtime output.
+  /// Distinguishes server vs client by port number: if the port matches
+  /// [serverVmServicePort], it's the server; otherwise it's the client.
   void _detectVmServiceUrl(String line) {
-    // Check for client (Flutter) VM service first (more specific pattern)
-    final clientMatch = _clientVmServiceRegex.firstMatch(line);
-    if (clientMatch != null) {
-      final httpUri = clientMatch.group(1)!;
-      final wsUri = _httpToWsUri(httpUri);
-      _clientVmService = VmServiceInfo(
-        httpUri: httpUri,
-        wsUri: wsUri,
-        isClient: true,
-      );
-      Logger.debug('Detected client VM service: $httpUri');
-      onClientVmServiceDetected?.call(_clientVmService!);
-      return;
-    }
+    final match = _vmServiceRegex.firstMatch(line);
+    if (match == null) return;
 
-    // Check for server (dart_dll) VM service
-    final serverMatch = _serverVmServiceRegex.firstMatch(line);
-    if (serverMatch != null) {
-      final httpUri = serverMatch.group(1)!;
-      final wsUri = _httpToWsUri(httpUri);
+    final httpUri = match.group(1)!;
+    final port = int.tryParse(match.group(2)!) ?? 0;
+    final wsUri = _httpToWsUri(httpUri);
+
+    if (port == serverVmServicePort) {
+      // Server (dart_dll) VM service - matches the known fixed port
       _serverVmService = VmServiceInfo(
         httpUri: httpUri,
         wsUri: wsUri,
@@ -746,7 +733,15 @@ class MinecraftRunner {
       );
       Logger.debug('Detected server VM service: $httpUri');
       onServerVmServiceDetected?.call(_serverVmService!);
-      return;
+    } else {
+      // Client (Flutter) VM service - any other port
+      _clientVmService = VmServiceInfo(
+        httpUri: httpUri,
+        wsUri: wsUri,
+        isClient: true,
+      );
+      Logger.debug('Detected client VM service: $httpUri');
+      onClientVmServiceDetected?.call(_clientVmService!);
     }
   }
 

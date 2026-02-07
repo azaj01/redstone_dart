@@ -73,6 +73,7 @@ static bool g_use_hardware_renderer = true;
 // ==========================================================================
 
 static FlutterEngine g_client_engine = nullptr;
+static FlutterEngineAOTData g_client_aot_data = nullptr;
 static bool g_client_initialized = false;
 static bool g_client_shutdown_requested = false;
 static std::mutex g_client_engine_mutex;
@@ -761,7 +762,17 @@ bool dart_client_init(const char* assets_path, const char* icu_data_path, const 
     if (is_aot_mode) {
         // AOT mode: load precompiled snapshot from ELF file
         std::cout << "  Mode: AOT (release)" << std::endl;
-        args.elf_snapshot_path = aot_library_path;
+
+        FlutterEngineAOTDataSource aot_source = {};
+        aot_source.type = kFlutterEngineAOTDataSourceTypeElfPath;
+        aot_source.elf_path = aot_library_path;
+
+        FlutterEngineResult aot_result = FlutterEngineCreateAOTData(&aot_source, &g_client_aot_data);
+        if (aot_result == kSuccess) {
+            args.aot_data = g_client_aot_data;
+        } else {
+            std::cerr << "Failed to create client AOT data from ELF: " << aot_result << std::endl;
+        }
 
         // In AOT mode, we don't need VM service (hot reload not supported)
         // Use minimal flags for better performance
@@ -895,6 +906,12 @@ void dart_client_shutdown() {
             std::cerr << "Warning: Flutter client engine shutdown returned error: " << result << std::endl;
         }
         g_client_engine = nullptr;
+    }
+
+    // Cleanup AOT data
+    if (g_client_aot_data != nullptr) {
+        FlutterEngineCollectAOTData(g_client_aot_data);
+        g_client_aot_data = nullptr;
     }
 
 #if METAL_SUPPORTED
